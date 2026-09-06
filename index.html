@@ -221,6 +221,34 @@ button:disabled,input:disabled{opacity:.42;cursor:not-allowed}
   position:absolute;top:62px;left:20px;z-index:5;
   color:var(--text-muted);font-size:10px;pointer-events:none;
 }
+.camera-tools{
+  position:absolute;top:58px;right:20px;z-index:7;
+  display:flex;flex-direction:column;align-items:flex-end;gap:6px;
+}
+.outlet-reference-key{
+  display:flex;align-items:center;gap:6px;
+  padding:4px 7px;color:var(--text-soft);background:rgba(10,15,21,.80);
+  border:1px solid var(--border);border-radius:5px;
+  font-size:9px;font-weight:700;letter-spacing:.02em;
+  backdrop-filter:blur(12px);pointer-events:none;
+}
+.outlet-reference-dot{
+  width:7px;height:7px;border-radius:50%;background:var(--cyan);
+  box-shadow:0 0 8px rgba(56,210,231,.8);
+}
+.camera-preset-group{
+  display:flex;padding:2px;background:rgba(10,15,21,.86);
+  border:1px solid var(--border);border-radius:6px;
+  box-shadow:0 8px 22px rgba(0,0,0,.18);backdrop-filter:blur(12px);
+}
+.camera-preset-group button{
+  min-width:42px;height:28px;padding:0 7px;color:var(--text-muted);
+  background:transparent;border:0;border-radius:4px;
+  font-size:9px;font-weight:750;cursor:pointer;
+  transition:color var(--ease),background var(--ease);
+}
+.camera-preset-group button:hover{color:var(--text);background:var(--surface-2)}
+.camera-preset-group button[aria-pressed="true"]{color:#061014;background:var(--cyan)}
 #playing-badge{
   position:absolute;top:18px;left:50%;z-index:6;
   transform:translateX(-50%);
@@ -488,7 +516,7 @@ body.has-live-strip #live-run-strip{display:grid}
 .tl-rz-l,.tl-rz-r{width:10px;flex:0 0 10px;display:grid;place-items:center;cursor:ew-resize;background:rgba(255,255,255,.035);opacity:.55}
 .tl-rz-l:hover,.tl-rz-r:hover{opacity:1;background:rgba(255,255,255,.12)}
 .tl-rz-l::after,.tl-rz-r::after{content:"";width:2px;height:24px;background:currentColor;border-radius:2px}
-.tl-rz-l.disabled{opacity:.12;pointer-events:none}
+.tl-rz-l.disabled,.tl-rz-r.disabled{opacity:.12;pointer-events:none}
 #tl-scrollbar{height:12px;margin-left:86px;background:#070a0e;border-top:1px solid var(--border);position:relative;cursor:pointer}
 #tl-scrollbar-thumb{position:absolute;top:2px;height:8px;min-width:32px;background:var(--surface-4);border-radius:4px;cursor:grab}
 #tl-scrollbar-thumb:hover,#tl-scrollbar-thumb.dragging{background:var(--cyan-strong)}
@@ -541,6 +569,7 @@ body.editor-locked #tl-open-btn{opacity:.48}
   .toolbar-btn{padding:5px 7px}
   #undo-btn,#redo-btn,#load-project-btn,#export-script-btn{display:none}
   .timeline-actions #add-at-playhead-btn,.timeline-actions #tl-add-wait-btn{display:none}
+  .camera-tools{right:12px}.camera-preset-group button{min-width:38px;padding:0 5px}
 }
 @media(max-width:720px){
   :root{--rail-w:62px;--panel-w:min(86vw,360px);--timeline-h:252px}
@@ -553,6 +582,8 @@ body.editor-locked #tl-open-btn{opacity:.48}
   .timeline-meta{padding-left:70px}
   #tl-labels{width:64px;flex-basis:64px}.tl-lbl{padding-left:7px;font-size:8px}#tl-scrollbar{margin-left:64px}
   #ur20-live-status{display:none}
+  .outlet-reference-key{display:none}.camera-tools{top:56px;right:10px}
+  .camera-preset-group button{min-width:34px;padding:0 4px;font-size:8px}
 }
 @media(prefers-reduced-motion:reduce){
   *,*::before,*::after{scroll-behavior:auto!important;animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important}
@@ -584,7 +615,7 @@ body.editor-locked #tl-open-btn{opacity:.48}
       <span id="save-badge" role="status">Saved</span>
       <input type="file" id="load-project-inp" accept=".ur20proj,.fr5proj,.json" class="visually-hidden">
       <button class="toolbar-btn" id="import-motion-btn" type="button" data-editor-mutation>Import</button>
-      <input type="file" id="import-motion-inp" accept=".script,.urscript,.urpx,application/json,text/plain" class="visually-hidden">
+      <input type="file" id="import-motion-inp" accept=".script,.urscript,.urpx,.lua,application/json,text/plain" class="visually-hidden">
       <div class="export-menu">
         <button class="toolbar-btn toolbar-btn-primary" id="export-urpx-btn" type="button">Export URPX</button>
         <button class="toolbar-btn" id="export-script-btn" type="button">Script</button>
@@ -626,6 +657,20 @@ body.editor-locked #tl-open-btn{opacity:.48}
       </div>
     </div>
     <div id="cam-hint">Drag to orbit · Scroll to zoom · Right-drag to pan</div>
+    <div class="camera-tools" aria-label="Robot camera and fixed-base controller connection">
+      <div class="outlet-reference-key" title="The cyan marker identifies the controller connection on the stationary robot base">
+        <span class="outlet-reference-dot" aria-hidden="true"></span>
+        <span id="base-reference-label">Controller outlet (fixed base)</span>
+      </div>
+      <div class="camera-preset-group" role="group" aria-label="Quick camera views">
+        <button type="button" data-camera-view="iso" aria-pressed="true">ISO</button>
+        <button type="button" data-camera-view="plus-x" aria-pressed="false">+X</button>
+        <button type="button" data-camera-view="minus-x" aria-pressed="false">-X</button>
+        <button type="button" data-camera-view="plus-y" aria-pressed="false">+Y</button>
+        <button type="button" data-camera-view="minus-y" aria-pressed="false">-Y</button>
+        <button type="button" data-camera-view="top" aria-pressed="false">Top</button>
+      </div>
+    </div>
     <div id="playing-badge" role="status">Preview running</div>
     <div id="hud" aria-label="Tool center point">
       <div class="hud-title">Tool center point</div>
@@ -1792,17 +1837,17 @@ globalThis.__FR5_BUILD_METADATA__=Object.freeze({"schemaVersion":1,"robotModel":
       return this;
     }
     transpose() {
-      let tmp;
+      let tmp2;
       const m2 = this.elements;
-      tmp = m2[1];
+      tmp2 = m2[1];
       m2[1] = m2[3];
-      m2[3] = tmp;
-      tmp = m2[2];
+      m2[3] = tmp2;
+      tmp2 = m2[2];
       m2[2] = m2[6];
-      m2[6] = tmp;
-      tmp = m2[5];
+      m2[6] = tmp2;
+      tmp2 = m2[5];
       m2[5] = m2[7];
-      m2[7] = tmp;
+      m2[7] = tmp2;
       return this;
     }
     getNormalMatrix(matrix4) {
@@ -4665,25 +4710,25 @@ globalThis.__FR5_BUILD_METADATA__=Object.freeze({"schemaVersion":1,"robotModel":
     }
     transpose() {
       const te = this.elements;
-      let tmp;
-      tmp = te[1];
+      let tmp2;
+      tmp2 = te[1];
       te[1] = te[4];
-      te[4] = tmp;
-      tmp = te[2];
+      te[4] = tmp2;
+      tmp2 = te[2];
       te[2] = te[8];
-      te[8] = tmp;
-      tmp = te[6];
+      te[8] = tmp2;
+      tmp2 = te[6];
       te[6] = te[9];
-      te[9] = tmp;
-      tmp = te[3];
+      te[9] = tmp2;
+      tmp2 = te[3];
       te[3] = te[12];
-      te[12] = tmp;
-      tmp = te[7];
+      te[12] = tmp2;
+      tmp2 = te[7];
       te[7] = te[13];
-      te[13] = tmp;
-      tmp = te[11];
+      te[13] = tmp2;
+      tmp2 = te[11];
       te[11] = te[14];
-      te[14] = tmp;
+      te[14] = tmp2;
       return this;
     }
     setPosition(x, y2, z) {
@@ -7353,20 +7398,20 @@ globalThis.__FR5_BUILD_METADATA__=Object.freeze({"schemaVersion":1,"robotModel":
           );
         }
       }
-      const tmp = new Vector3(), tmp2 = new Vector3();
+      const tmp2 = new Vector3(), tmp22 = new Vector3();
       const n2 = new Vector3(), n22 = new Vector3();
       function handleVertex(v2) {
         n2.fromArray(normals, v2 * 3);
         n22.copy(n2);
         const t2 = tan1[v2];
-        tmp.copy(t2);
-        tmp.sub(n2.multiplyScalar(n2.dot(t2))).normalize();
-        tmp2.crossVectors(n22, t2);
-        const test = tmp2.dot(tan2[v2]);
+        tmp2.copy(t2);
+        tmp2.sub(n2.multiplyScalar(n2.dot(t2))).normalize();
+        tmp22.crossVectors(n22, t2);
+        const test = tmp22.dot(tan2[v2]);
         const w2 = test < 0 ? -1 : 1;
-        tangents[v2 * 4] = tmp.x;
-        tangents[v2 * 4 + 1] = tmp.y;
-        tangents[v2 * 4 + 2] = tmp.z;
+        tangents[v2 * 4] = tmp2.x;
+        tangents[v2 * 4 + 1] = tmp2.y;
+        tangents[v2 * 4 + 2] = tmp2.z;
         tangents[v2 * 4 + 3] = w2;
       }
       for (let i2 = 0, il = groups.length; i2 < il; ++i2) {
@@ -7955,9 +8000,9 @@ globalThis.__FR5_BUILD_METADATA__=Object.freeze({"schemaVersion":1,"robotModel":
   function mergeUniforms(uniforms) {
     const merged = {};
     for (let u2 = 0; u2 < uniforms.length; u2++) {
-      const tmp = cloneUniforms(uniforms[u2]);
-      for (const p2 in tmp) {
-        merged[p2] = tmp[p2];
+      const tmp2 = cloneUniforms(uniforms[u2]);
+      for (const p2 in tmp2) {
+        merged[p2] = tmp2[p2];
       }
     }
     return merged;
@@ -18697,6 +18742,394 @@ globalThis.__FR5_BUILD_METADATA__=Object.freeze({"schemaVersion":1,"robotModel":
       return data;
     }
   };
+  var InterleavedBuffer = class {
+    constructor(array, stride) {
+      this.isInterleavedBuffer = true;
+      this.array = array;
+      this.stride = stride;
+      this.count = array !== void 0 ? array.length / stride : 0;
+      this.usage = StaticDrawUsage;
+      this.updateRange = { offset: 0, count: -1 };
+      this.version = 0;
+      this.uuid = generateUUID();
+    }
+    onUploadCallback() {
+    }
+    set needsUpdate(value) {
+      if (value === true) this.version++;
+    }
+    setUsage(value) {
+      this.usage = value;
+      return this;
+    }
+    copy(source) {
+      this.array = new source.array.constructor(source.array);
+      this.count = source.count;
+      this.stride = source.stride;
+      this.usage = source.usage;
+      return this;
+    }
+    copyAt(index1, attribute, index2) {
+      index1 *= this.stride;
+      index2 *= attribute.stride;
+      for (let i2 = 0, l2 = this.stride; i2 < l2; i2++) {
+        this.array[index1 + i2] = attribute.array[index2 + i2];
+      }
+      return this;
+    }
+    set(value, offset = 0) {
+      this.array.set(value, offset);
+      return this;
+    }
+    clone(data) {
+      if (data.arrayBuffers === void 0) {
+        data.arrayBuffers = {};
+      }
+      if (this.array.buffer._uuid === void 0) {
+        this.array.buffer._uuid = generateUUID();
+      }
+      if (data.arrayBuffers[this.array.buffer._uuid] === void 0) {
+        data.arrayBuffers[this.array.buffer._uuid] = this.array.slice(0).buffer;
+      }
+      const array = new this.array.constructor(data.arrayBuffers[this.array.buffer._uuid]);
+      const ib = new this.constructor(array, this.stride);
+      ib.setUsage(this.usage);
+      return ib;
+    }
+    onUpload(callback) {
+      this.onUploadCallback = callback;
+      return this;
+    }
+    toJSON(data) {
+      if (data.arrayBuffers === void 0) {
+        data.arrayBuffers = {};
+      }
+      if (this.array.buffer._uuid === void 0) {
+        this.array.buffer._uuid = generateUUID();
+      }
+      if (data.arrayBuffers[this.array.buffer._uuid] === void 0) {
+        data.arrayBuffers[this.array.buffer._uuid] = Array.from(new Uint32Array(this.array.buffer));
+      }
+      return {
+        uuid: this.uuid,
+        buffer: this.array.buffer._uuid,
+        type: this.array.constructor.name,
+        stride: this.stride
+      };
+    }
+  };
+  var _vector$5 = /* @__PURE__ */ new Vector3();
+  var InterleavedBufferAttribute = class _InterleavedBufferAttribute {
+    constructor(interleavedBuffer, itemSize, offset, normalized = false) {
+      this.isInterleavedBufferAttribute = true;
+      this.name = "";
+      this.data = interleavedBuffer;
+      this.itemSize = itemSize;
+      this.offset = offset;
+      this.normalized = normalized;
+    }
+    get count() {
+      return this.data.count;
+    }
+    get array() {
+      return this.data.array;
+    }
+    set needsUpdate(value) {
+      this.data.needsUpdate = value;
+    }
+    applyMatrix4(m2) {
+      for (let i2 = 0, l2 = this.data.count; i2 < l2; i2++) {
+        _vector$5.fromBufferAttribute(this, i2);
+        _vector$5.applyMatrix4(m2);
+        this.setXYZ(i2, _vector$5.x, _vector$5.y, _vector$5.z);
+      }
+      return this;
+    }
+    applyNormalMatrix(m2) {
+      for (let i2 = 0, l2 = this.count; i2 < l2; i2++) {
+        _vector$5.fromBufferAttribute(this, i2);
+        _vector$5.applyNormalMatrix(m2);
+        this.setXYZ(i2, _vector$5.x, _vector$5.y, _vector$5.z);
+      }
+      return this;
+    }
+    transformDirection(m2) {
+      for (let i2 = 0, l2 = this.count; i2 < l2; i2++) {
+        _vector$5.fromBufferAttribute(this, i2);
+        _vector$5.transformDirection(m2);
+        this.setXYZ(i2, _vector$5.x, _vector$5.y, _vector$5.z);
+      }
+      return this;
+    }
+    setX(index, x) {
+      if (this.normalized) x = normalize(x, this.array);
+      this.data.array[index * this.data.stride + this.offset] = x;
+      return this;
+    }
+    setY(index, y2) {
+      if (this.normalized) y2 = normalize(y2, this.array);
+      this.data.array[index * this.data.stride + this.offset + 1] = y2;
+      return this;
+    }
+    setZ(index, z) {
+      if (this.normalized) z = normalize(z, this.array);
+      this.data.array[index * this.data.stride + this.offset + 2] = z;
+      return this;
+    }
+    setW(index, w2) {
+      if (this.normalized) w2 = normalize(w2, this.array);
+      this.data.array[index * this.data.stride + this.offset + 3] = w2;
+      return this;
+    }
+    getX(index) {
+      let x = this.data.array[index * this.data.stride + this.offset];
+      if (this.normalized) x = denormalize(x, this.array);
+      return x;
+    }
+    getY(index) {
+      let y2 = this.data.array[index * this.data.stride + this.offset + 1];
+      if (this.normalized) y2 = denormalize(y2, this.array);
+      return y2;
+    }
+    getZ(index) {
+      let z = this.data.array[index * this.data.stride + this.offset + 2];
+      if (this.normalized) z = denormalize(z, this.array);
+      return z;
+    }
+    getW(index) {
+      let w2 = this.data.array[index * this.data.stride + this.offset + 3];
+      if (this.normalized) w2 = denormalize(w2, this.array);
+      return w2;
+    }
+    setXY(index, x, y2) {
+      index = index * this.data.stride + this.offset;
+      if (this.normalized) {
+        x = normalize(x, this.array);
+        y2 = normalize(y2, this.array);
+      }
+      this.data.array[index + 0] = x;
+      this.data.array[index + 1] = y2;
+      return this;
+    }
+    setXYZ(index, x, y2, z) {
+      index = index * this.data.stride + this.offset;
+      if (this.normalized) {
+        x = normalize(x, this.array);
+        y2 = normalize(y2, this.array);
+        z = normalize(z, this.array);
+      }
+      this.data.array[index + 0] = x;
+      this.data.array[index + 1] = y2;
+      this.data.array[index + 2] = z;
+      return this;
+    }
+    setXYZW(index, x, y2, z, w2) {
+      index = index * this.data.stride + this.offset;
+      if (this.normalized) {
+        x = normalize(x, this.array);
+        y2 = normalize(y2, this.array);
+        z = normalize(z, this.array);
+        w2 = normalize(w2, this.array);
+      }
+      this.data.array[index + 0] = x;
+      this.data.array[index + 1] = y2;
+      this.data.array[index + 2] = z;
+      this.data.array[index + 3] = w2;
+      return this;
+    }
+    clone(data) {
+      if (data === void 0) {
+        console.log("THREE.InterleavedBufferAttribute.clone(): Cloning an interleaved buffer attribute will de-interleave buffer data.");
+        const array = [];
+        for (let i2 = 0; i2 < this.count; i2++) {
+          const index = i2 * this.data.stride + this.offset;
+          for (let j = 0; j < this.itemSize; j++) {
+            array.push(this.data.array[index + j]);
+          }
+        }
+        return new BufferAttribute(new this.array.constructor(array), this.itemSize, this.normalized);
+      } else {
+        if (data.interleavedBuffers === void 0) {
+          data.interleavedBuffers = {};
+        }
+        if (data.interleavedBuffers[this.data.uuid] === void 0) {
+          data.interleavedBuffers[this.data.uuid] = this.data.clone(data);
+        }
+        return new _InterleavedBufferAttribute(data.interleavedBuffers[this.data.uuid], this.itemSize, this.offset, this.normalized);
+      }
+    }
+    toJSON(data) {
+      if (data === void 0) {
+        console.log("THREE.InterleavedBufferAttribute.toJSON(): Serializing an interleaved buffer attribute will de-interleave buffer data.");
+        const array = [];
+        for (let i2 = 0; i2 < this.count; i2++) {
+          const index = i2 * this.data.stride + this.offset;
+          for (let j = 0; j < this.itemSize; j++) {
+            array.push(this.data.array[index + j]);
+          }
+        }
+        return {
+          itemSize: this.itemSize,
+          type: this.array.constructor.name,
+          array,
+          normalized: this.normalized
+        };
+      } else {
+        if (data.interleavedBuffers === void 0) {
+          data.interleavedBuffers = {};
+        }
+        if (data.interleavedBuffers[this.data.uuid] === void 0) {
+          data.interleavedBuffers[this.data.uuid] = this.data.toJSON(data);
+        }
+        return {
+          isInterleavedBufferAttribute: true,
+          itemSize: this.itemSize,
+          data: this.data.uuid,
+          offset: this.offset,
+          normalized: this.normalized
+        };
+      }
+    }
+  };
+  var SpriteMaterial = class extends Material {
+    constructor(parameters) {
+      super();
+      this.isSpriteMaterial = true;
+      this.type = "SpriteMaterial";
+      this.color = new Color(16777215);
+      this.map = null;
+      this.alphaMap = null;
+      this.rotation = 0;
+      this.sizeAttenuation = true;
+      this.transparent = true;
+      this.fog = true;
+      this.setValues(parameters);
+    }
+    copy(source) {
+      super.copy(source);
+      this.color.copy(source.color);
+      this.map = source.map;
+      this.alphaMap = source.alphaMap;
+      this.rotation = source.rotation;
+      this.sizeAttenuation = source.sizeAttenuation;
+      this.fog = source.fog;
+      return this;
+    }
+  };
+  var _geometry;
+  var _intersectPoint = /* @__PURE__ */ new Vector3();
+  var _worldScale = /* @__PURE__ */ new Vector3();
+  var _mvPosition = /* @__PURE__ */ new Vector3();
+  var _alignedPosition = /* @__PURE__ */ new Vector2();
+  var _rotatedPosition = /* @__PURE__ */ new Vector2();
+  var _viewWorldMatrix = /* @__PURE__ */ new Matrix4();
+  var _vA = /* @__PURE__ */ new Vector3();
+  var _vB = /* @__PURE__ */ new Vector3();
+  var _vC = /* @__PURE__ */ new Vector3();
+  var _uvA = /* @__PURE__ */ new Vector2();
+  var _uvB = /* @__PURE__ */ new Vector2();
+  var _uvC = /* @__PURE__ */ new Vector2();
+  var Sprite = class extends Object3D {
+    constructor(material = new SpriteMaterial()) {
+      super();
+      this.isSprite = true;
+      this.type = "Sprite";
+      if (_geometry === void 0) {
+        _geometry = new BufferGeometry();
+        const float32Array = new Float32Array([
+          -0.5,
+          -0.5,
+          0,
+          0,
+          0,
+          0.5,
+          -0.5,
+          0,
+          1,
+          0,
+          0.5,
+          0.5,
+          0,
+          1,
+          1,
+          -0.5,
+          0.5,
+          0,
+          0,
+          1
+        ]);
+        const interleavedBuffer = new InterleavedBuffer(float32Array, 5);
+        _geometry.setIndex([0, 1, 2, 0, 2, 3]);
+        _geometry.setAttribute("position", new InterleavedBufferAttribute(interleavedBuffer, 3, 0, false));
+        _geometry.setAttribute("uv", new InterleavedBufferAttribute(interleavedBuffer, 2, 3, false));
+      }
+      this.geometry = _geometry;
+      this.material = material;
+      this.center = new Vector2(0.5, 0.5);
+    }
+    raycast(raycaster, intersects) {
+      if (raycaster.camera === null) {
+        console.error('THREE.Sprite: "Raycaster.camera" needs to be set in order to raycast against sprites.');
+      }
+      _worldScale.setFromMatrixScale(this.matrixWorld);
+      _viewWorldMatrix.copy(raycaster.camera.matrixWorld);
+      this.modelViewMatrix.multiplyMatrices(raycaster.camera.matrixWorldInverse, this.matrixWorld);
+      _mvPosition.setFromMatrixPosition(this.modelViewMatrix);
+      if (raycaster.camera.isPerspectiveCamera && this.material.sizeAttenuation === false) {
+        _worldScale.multiplyScalar(-_mvPosition.z);
+      }
+      const rotation = this.material.rotation;
+      let sin, cos;
+      if (rotation !== 0) {
+        cos = Math.cos(rotation);
+        sin = Math.sin(rotation);
+      }
+      const center = this.center;
+      transformVertex(_vA.set(-0.5, -0.5, 0), _mvPosition, center, _worldScale, sin, cos);
+      transformVertex(_vB.set(0.5, -0.5, 0), _mvPosition, center, _worldScale, sin, cos);
+      transformVertex(_vC.set(0.5, 0.5, 0), _mvPosition, center, _worldScale, sin, cos);
+      _uvA.set(0, 0);
+      _uvB.set(1, 0);
+      _uvC.set(1, 1);
+      let intersect = raycaster.ray.intersectTriangle(_vA, _vB, _vC, false, _intersectPoint);
+      if (intersect === null) {
+        transformVertex(_vB.set(-0.5, 0.5, 0), _mvPosition, center, _worldScale, sin, cos);
+        _uvB.set(0, 1);
+        intersect = raycaster.ray.intersectTriangle(_vA, _vC, _vB, false, _intersectPoint);
+        if (intersect === null) {
+          return;
+        }
+      }
+      const distance = raycaster.ray.origin.distanceTo(_intersectPoint);
+      if (distance < raycaster.near || distance > raycaster.far) return;
+      intersects.push({
+        distance,
+        point: _intersectPoint.clone(),
+        uv: Triangle.getInterpolation(_intersectPoint, _vA, _vB, _vC, _uvA, _uvB, _uvC, new Vector2()),
+        face: null,
+        object: this
+      });
+    }
+    copy(source, recursive) {
+      super.copy(source, recursive);
+      if (source.center !== void 0) this.center.copy(source.center);
+      this.material = source.material;
+      return this;
+    }
+  };
+  function transformVertex(vertexPosition, mvPosition, center, scale, sin, cos) {
+    _alignedPosition.subVectors(vertexPosition, center).addScalar(0.5).multiply(scale);
+    if (sin !== void 0) {
+      _rotatedPosition.x = cos * _alignedPosition.x - sin * _alignedPosition.y;
+      _rotatedPosition.y = sin * _alignedPosition.x + cos * _alignedPosition.y;
+    } else {
+      _rotatedPosition.copy(_alignedPosition);
+    }
+    vertexPosition.copy(mvPosition);
+    vertexPosition.x += _rotatedPosition.x;
+    vertexPosition.y += _rotatedPosition.y;
+    vertexPosition.applyMatrix4(_viewWorldMatrix);
+  }
   var _basePosition = /* @__PURE__ */ new Vector3();
   var _skinIndex = /* @__PURE__ */ new Vector4();
   var _skinWeight = /* @__PURE__ */ new Vector4();
@@ -19162,6 +19595,797 @@ globalThis.__FR5_BUILD_METADATA__=Object.freeze({"schemaVersion":1,"robotModel":
       return this;
     }
   };
+  var CanvasTexture = class extends Texture {
+    constructor(canvas, mapping, wrapS, wrapT, magFilter, minFilter, format, type, anisotropy) {
+      super(canvas, mapping, wrapS, wrapT, magFilter, minFilter, format, type, anisotropy);
+      this.isCanvasTexture = true;
+      this.needsUpdate = true;
+    }
+  };
+  var Curve = class {
+    constructor() {
+      this.type = "Curve";
+      this.arcLengthDivisions = 200;
+    }
+    // Virtual base class method to overwrite and implement in subclasses
+    //	- t [0 .. 1]
+    getPoint() {
+      console.warn("THREE.Curve: .getPoint() not implemented.");
+      return null;
+    }
+    // Get point at relative position in curve according to arc length
+    // - u [0 .. 1]
+    getPointAt(u2, optionalTarget) {
+      const t2 = this.getUtoTmapping(u2);
+      return this.getPoint(t2, optionalTarget);
+    }
+    // Get sequence of points using getPoint( t )
+    getPoints(divisions = 5) {
+      const points = [];
+      for (let d2 = 0; d2 <= divisions; d2++) {
+        points.push(this.getPoint(d2 / divisions));
+      }
+      return points;
+    }
+    // Get sequence of points using getPointAt( u )
+    getSpacedPoints(divisions = 5) {
+      const points = [];
+      for (let d2 = 0; d2 <= divisions; d2++) {
+        points.push(this.getPointAt(d2 / divisions));
+      }
+      return points;
+    }
+    // Get total curve arc length
+    getLength() {
+      const lengths = this.getLengths();
+      return lengths[lengths.length - 1];
+    }
+    // Get list of cumulative segment lengths
+    getLengths(divisions = this.arcLengthDivisions) {
+      if (this.cacheArcLengths && this.cacheArcLengths.length === divisions + 1 && !this.needsUpdate) {
+        return this.cacheArcLengths;
+      }
+      this.needsUpdate = false;
+      const cache = [];
+      let current, last = this.getPoint(0);
+      let sum = 0;
+      cache.push(0);
+      for (let p2 = 1; p2 <= divisions; p2++) {
+        current = this.getPoint(p2 / divisions);
+        sum += current.distanceTo(last);
+        cache.push(sum);
+        last = current;
+      }
+      this.cacheArcLengths = cache;
+      return cache;
+    }
+    updateArcLengths() {
+      this.needsUpdate = true;
+      this.getLengths();
+    }
+    // Given u ( 0 .. 1 ), get a t to find p. This gives you points which are equidistant
+    getUtoTmapping(u2, distance) {
+      const arcLengths = this.getLengths();
+      let i2 = 0;
+      const il = arcLengths.length;
+      let targetArcLength;
+      if (distance) {
+        targetArcLength = distance;
+      } else {
+        targetArcLength = u2 * arcLengths[il - 1];
+      }
+      let low = 0, high = il - 1, comparison;
+      while (low <= high) {
+        i2 = Math.floor(low + (high - low) / 2);
+        comparison = arcLengths[i2] - targetArcLength;
+        if (comparison < 0) {
+          low = i2 + 1;
+        } else if (comparison > 0) {
+          high = i2 - 1;
+        } else {
+          high = i2;
+          break;
+        }
+      }
+      i2 = high;
+      if (arcLengths[i2] === targetArcLength) {
+        return i2 / (il - 1);
+      }
+      const lengthBefore = arcLengths[i2];
+      const lengthAfter = arcLengths[i2 + 1];
+      const segmentLength = lengthAfter - lengthBefore;
+      const segmentFraction = (targetArcLength - lengthBefore) / segmentLength;
+      const t2 = (i2 + segmentFraction) / (il - 1);
+      return t2;
+    }
+    // Returns a unit vector tangent at t
+    // In case any sub curve does not implement its tangent derivation,
+    // 2 points a small delta apart will be used to find its gradient
+    // which seems to give a reasonable approximation
+    getTangent(t2, optionalTarget) {
+      const delta = 1e-4;
+      let t1 = t2 - delta;
+      let t22 = t2 + delta;
+      if (t1 < 0) t1 = 0;
+      if (t22 > 1) t22 = 1;
+      const pt1 = this.getPoint(t1);
+      const pt2 = this.getPoint(t22);
+      const tangent = optionalTarget || (pt1.isVector2 ? new Vector2() : new Vector3());
+      tangent.copy(pt2).sub(pt1).normalize();
+      return tangent;
+    }
+    getTangentAt(u2, optionalTarget) {
+      const t2 = this.getUtoTmapping(u2);
+      return this.getTangent(t2, optionalTarget);
+    }
+    computeFrenetFrames(segments, closed) {
+      const normal = new Vector3();
+      const tangents = [];
+      const normals = [];
+      const binormals = [];
+      const vec = new Vector3();
+      const mat = new Matrix4();
+      for (let i2 = 0; i2 <= segments; i2++) {
+        const u2 = i2 / segments;
+        tangents[i2] = this.getTangentAt(u2, new Vector3());
+      }
+      normals[0] = new Vector3();
+      binormals[0] = new Vector3();
+      let min = Number.MAX_VALUE;
+      const tx = Math.abs(tangents[0].x);
+      const ty = Math.abs(tangents[0].y);
+      const tz = Math.abs(tangents[0].z);
+      if (tx <= min) {
+        min = tx;
+        normal.set(1, 0, 0);
+      }
+      if (ty <= min) {
+        min = ty;
+        normal.set(0, 1, 0);
+      }
+      if (tz <= min) {
+        normal.set(0, 0, 1);
+      }
+      vec.crossVectors(tangents[0], normal).normalize();
+      normals[0].crossVectors(tangents[0], vec);
+      binormals[0].crossVectors(tangents[0], normals[0]);
+      for (let i2 = 1; i2 <= segments; i2++) {
+        normals[i2] = normals[i2 - 1].clone();
+        binormals[i2] = binormals[i2 - 1].clone();
+        vec.crossVectors(tangents[i2 - 1], tangents[i2]);
+        if (vec.length() > Number.EPSILON) {
+          vec.normalize();
+          const theta = Math.acos(clamp(tangents[i2 - 1].dot(tangents[i2]), -1, 1));
+          normals[i2].applyMatrix4(mat.makeRotationAxis(vec, theta));
+        }
+        binormals[i2].crossVectors(tangents[i2], normals[i2]);
+      }
+      if (closed === true) {
+        let theta = Math.acos(clamp(normals[0].dot(normals[segments]), -1, 1));
+        theta /= segments;
+        if (tangents[0].dot(vec.crossVectors(normals[0], normals[segments])) > 0) {
+          theta = -theta;
+        }
+        for (let i2 = 1; i2 <= segments; i2++) {
+          normals[i2].applyMatrix4(mat.makeRotationAxis(tangents[i2], theta * i2));
+          binormals[i2].crossVectors(tangents[i2], normals[i2]);
+        }
+      }
+      return {
+        tangents,
+        normals,
+        binormals
+      };
+    }
+    clone() {
+      return new this.constructor().copy(this);
+    }
+    copy(source) {
+      this.arcLengthDivisions = source.arcLengthDivisions;
+      return this;
+    }
+    toJSON() {
+      const data = {
+        metadata: {
+          version: 4.6,
+          type: "Curve",
+          generator: "Curve.toJSON"
+        }
+      };
+      data.arcLengthDivisions = this.arcLengthDivisions;
+      data.type = this.type;
+      return data;
+    }
+    fromJSON(json) {
+      this.arcLengthDivisions = json.arcLengthDivisions;
+      return this;
+    }
+  };
+  var EllipseCurve = class extends Curve {
+    constructor(aX = 0, aY = 0, xRadius = 1, yRadius = 1, aStartAngle = 0, aEndAngle = Math.PI * 2, aClockwise = false, aRotation = 0) {
+      super();
+      this.isEllipseCurve = true;
+      this.type = "EllipseCurve";
+      this.aX = aX;
+      this.aY = aY;
+      this.xRadius = xRadius;
+      this.yRadius = yRadius;
+      this.aStartAngle = aStartAngle;
+      this.aEndAngle = aEndAngle;
+      this.aClockwise = aClockwise;
+      this.aRotation = aRotation;
+    }
+    getPoint(t2, optionalTarget) {
+      const point = optionalTarget || new Vector2();
+      const twoPi = Math.PI * 2;
+      let deltaAngle = this.aEndAngle - this.aStartAngle;
+      const samePoints = Math.abs(deltaAngle) < Number.EPSILON;
+      while (deltaAngle < 0) deltaAngle += twoPi;
+      while (deltaAngle > twoPi) deltaAngle -= twoPi;
+      if (deltaAngle < Number.EPSILON) {
+        if (samePoints) {
+          deltaAngle = 0;
+        } else {
+          deltaAngle = twoPi;
+        }
+      }
+      if (this.aClockwise === true && !samePoints) {
+        if (deltaAngle === twoPi) {
+          deltaAngle = -twoPi;
+        } else {
+          deltaAngle = deltaAngle - twoPi;
+        }
+      }
+      const angle = this.aStartAngle + t2 * deltaAngle;
+      let x = this.aX + this.xRadius * Math.cos(angle);
+      let y2 = this.aY + this.yRadius * Math.sin(angle);
+      if (this.aRotation !== 0) {
+        const cos = Math.cos(this.aRotation);
+        const sin = Math.sin(this.aRotation);
+        const tx = x - this.aX;
+        const ty = y2 - this.aY;
+        x = tx * cos - ty * sin + this.aX;
+        y2 = tx * sin + ty * cos + this.aY;
+      }
+      return point.set(x, y2);
+    }
+    copy(source) {
+      super.copy(source);
+      this.aX = source.aX;
+      this.aY = source.aY;
+      this.xRadius = source.xRadius;
+      this.yRadius = source.yRadius;
+      this.aStartAngle = source.aStartAngle;
+      this.aEndAngle = source.aEndAngle;
+      this.aClockwise = source.aClockwise;
+      this.aRotation = source.aRotation;
+      return this;
+    }
+    toJSON() {
+      const data = super.toJSON();
+      data.aX = this.aX;
+      data.aY = this.aY;
+      data.xRadius = this.xRadius;
+      data.yRadius = this.yRadius;
+      data.aStartAngle = this.aStartAngle;
+      data.aEndAngle = this.aEndAngle;
+      data.aClockwise = this.aClockwise;
+      data.aRotation = this.aRotation;
+      return data;
+    }
+    fromJSON(json) {
+      super.fromJSON(json);
+      this.aX = json.aX;
+      this.aY = json.aY;
+      this.xRadius = json.xRadius;
+      this.yRadius = json.yRadius;
+      this.aStartAngle = json.aStartAngle;
+      this.aEndAngle = json.aEndAngle;
+      this.aClockwise = json.aClockwise;
+      this.aRotation = json.aRotation;
+      return this;
+    }
+  };
+  var ArcCurve = class extends EllipseCurve {
+    constructor(aX, aY, aRadius, aStartAngle, aEndAngle, aClockwise) {
+      super(aX, aY, aRadius, aRadius, aStartAngle, aEndAngle, aClockwise);
+      this.isArcCurve = true;
+      this.type = "ArcCurve";
+    }
+  };
+  function CubicPoly() {
+    let c0 = 0, c1 = 0, c2 = 0, c3 = 0;
+    function init(x0, x1, t0, t1) {
+      c0 = x0;
+      c1 = t0;
+      c2 = -3 * x0 + 3 * x1 - 2 * t0 - t1;
+      c3 = 2 * x0 - 2 * x1 + t0 + t1;
+    }
+    return {
+      initCatmullRom: function(x0, x1, x2, x3, tension) {
+        init(x1, x2, tension * (x2 - x0), tension * (x3 - x1));
+      },
+      initNonuniformCatmullRom: function(x0, x1, x2, x3, dt0, dt1, dt2) {
+        let t1 = (x1 - x0) / dt0 - (x2 - x0) / (dt0 + dt1) + (x2 - x1) / dt1;
+        let t2 = (x2 - x1) / dt1 - (x3 - x1) / (dt1 + dt2) + (x3 - x2) / dt2;
+        t1 *= dt1;
+        t2 *= dt1;
+        init(x1, x2, t1, t2);
+      },
+      calc: function(t2) {
+        const t22 = t2 * t2;
+        const t3 = t22 * t2;
+        return c0 + c1 * t2 + c2 * t22 + c3 * t3;
+      }
+    };
+  }
+  var tmp = /* @__PURE__ */ new Vector3();
+  var px = /* @__PURE__ */ new CubicPoly();
+  var py = /* @__PURE__ */ new CubicPoly();
+  var pz = /* @__PURE__ */ new CubicPoly();
+  var CatmullRomCurve3 = class extends Curve {
+    constructor(points = [], closed = false, curveType = "centripetal", tension = 0.5) {
+      super();
+      this.isCatmullRomCurve3 = true;
+      this.type = "CatmullRomCurve3";
+      this.points = points;
+      this.closed = closed;
+      this.curveType = curveType;
+      this.tension = tension;
+    }
+    getPoint(t2, optionalTarget = new Vector3()) {
+      const point = optionalTarget;
+      const points = this.points;
+      const l2 = points.length;
+      const p2 = (l2 - (this.closed ? 0 : 1)) * t2;
+      let intPoint = Math.floor(p2);
+      let weight = p2 - intPoint;
+      if (this.closed) {
+        intPoint += intPoint > 0 ? 0 : (Math.floor(Math.abs(intPoint) / l2) + 1) * l2;
+      } else if (weight === 0 && intPoint === l2 - 1) {
+        intPoint = l2 - 2;
+        weight = 1;
+      }
+      let p0, p3;
+      if (this.closed || intPoint > 0) {
+        p0 = points[(intPoint - 1) % l2];
+      } else {
+        tmp.subVectors(points[0], points[1]).add(points[0]);
+        p0 = tmp;
+      }
+      const p1 = points[intPoint % l2];
+      const p22 = points[(intPoint + 1) % l2];
+      if (this.closed || intPoint + 2 < l2) {
+        p3 = points[(intPoint + 2) % l2];
+      } else {
+        tmp.subVectors(points[l2 - 1], points[l2 - 2]).add(points[l2 - 1]);
+        p3 = tmp;
+      }
+      if (this.curveType === "centripetal" || this.curveType === "chordal") {
+        const pow = this.curveType === "chordal" ? 0.5 : 0.25;
+        let dt0 = Math.pow(p0.distanceToSquared(p1), pow);
+        let dt1 = Math.pow(p1.distanceToSquared(p22), pow);
+        let dt2 = Math.pow(p22.distanceToSquared(p3), pow);
+        if (dt1 < 1e-4) dt1 = 1;
+        if (dt0 < 1e-4) dt0 = dt1;
+        if (dt2 < 1e-4) dt2 = dt1;
+        px.initNonuniformCatmullRom(p0.x, p1.x, p22.x, p3.x, dt0, dt1, dt2);
+        py.initNonuniformCatmullRom(p0.y, p1.y, p22.y, p3.y, dt0, dt1, dt2);
+        pz.initNonuniformCatmullRom(p0.z, p1.z, p22.z, p3.z, dt0, dt1, dt2);
+      } else if (this.curveType === "catmullrom") {
+        px.initCatmullRom(p0.x, p1.x, p22.x, p3.x, this.tension);
+        py.initCatmullRom(p0.y, p1.y, p22.y, p3.y, this.tension);
+        pz.initCatmullRom(p0.z, p1.z, p22.z, p3.z, this.tension);
+      }
+      point.set(
+        px.calc(weight),
+        py.calc(weight),
+        pz.calc(weight)
+      );
+      return point;
+    }
+    copy(source) {
+      super.copy(source);
+      this.points = [];
+      for (let i2 = 0, l2 = source.points.length; i2 < l2; i2++) {
+        const point = source.points[i2];
+        this.points.push(point.clone());
+      }
+      this.closed = source.closed;
+      this.curveType = source.curveType;
+      this.tension = source.tension;
+      return this;
+    }
+    toJSON() {
+      const data = super.toJSON();
+      data.points = [];
+      for (let i2 = 0, l2 = this.points.length; i2 < l2; i2++) {
+        const point = this.points[i2];
+        data.points.push(point.toArray());
+      }
+      data.closed = this.closed;
+      data.curveType = this.curveType;
+      data.tension = this.tension;
+      return data;
+    }
+    fromJSON(json) {
+      super.fromJSON(json);
+      this.points = [];
+      for (let i2 = 0, l2 = json.points.length; i2 < l2; i2++) {
+        const point = json.points[i2];
+        this.points.push(new Vector3().fromArray(point));
+      }
+      this.closed = json.closed;
+      this.curveType = json.curveType;
+      this.tension = json.tension;
+      return this;
+    }
+  };
+  function CatmullRom(t2, p0, p1, p2, p3) {
+    const v0 = (p2 - p0) * 0.5;
+    const v1 = (p3 - p1) * 0.5;
+    const t22 = t2 * t2;
+    const t3 = t2 * t22;
+    return (2 * p1 - 2 * p2 + v0 + v1) * t3 + (-3 * p1 + 3 * p2 - 2 * v0 - v1) * t22 + v0 * t2 + p1;
+  }
+  function QuadraticBezierP0(t2, p2) {
+    const k = 1 - t2;
+    return k * k * p2;
+  }
+  function QuadraticBezierP1(t2, p2) {
+    return 2 * (1 - t2) * t2 * p2;
+  }
+  function QuadraticBezierP2(t2, p2) {
+    return t2 * t2 * p2;
+  }
+  function QuadraticBezier(t2, p0, p1, p2) {
+    return QuadraticBezierP0(t2, p0) + QuadraticBezierP1(t2, p1) + QuadraticBezierP2(t2, p2);
+  }
+  function CubicBezierP0(t2, p2) {
+    const k = 1 - t2;
+    return k * k * k * p2;
+  }
+  function CubicBezierP1(t2, p2) {
+    const k = 1 - t2;
+    return 3 * k * k * t2 * p2;
+  }
+  function CubicBezierP2(t2, p2) {
+    return 3 * (1 - t2) * t2 * t2 * p2;
+  }
+  function CubicBezierP3(t2, p2) {
+    return t2 * t2 * t2 * p2;
+  }
+  function CubicBezier(t2, p0, p1, p2, p3) {
+    return CubicBezierP0(t2, p0) + CubicBezierP1(t2, p1) + CubicBezierP2(t2, p2) + CubicBezierP3(t2, p3);
+  }
+  var CubicBezierCurve = class extends Curve {
+    constructor(v0 = new Vector2(), v1 = new Vector2(), v2 = new Vector2(), v3 = new Vector2()) {
+      super();
+      this.isCubicBezierCurve = true;
+      this.type = "CubicBezierCurve";
+      this.v0 = v0;
+      this.v1 = v1;
+      this.v2 = v2;
+      this.v3 = v3;
+    }
+    getPoint(t2, optionalTarget = new Vector2()) {
+      const point = optionalTarget;
+      const v0 = this.v0, v1 = this.v1, v2 = this.v2, v3 = this.v3;
+      point.set(
+        CubicBezier(t2, v0.x, v1.x, v2.x, v3.x),
+        CubicBezier(t2, v0.y, v1.y, v2.y, v3.y)
+      );
+      return point;
+    }
+    copy(source) {
+      super.copy(source);
+      this.v0.copy(source.v0);
+      this.v1.copy(source.v1);
+      this.v2.copy(source.v2);
+      this.v3.copy(source.v3);
+      return this;
+    }
+    toJSON() {
+      const data = super.toJSON();
+      data.v0 = this.v0.toArray();
+      data.v1 = this.v1.toArray();
+      data.v2 = this.v2.toArray();
+      data.v3 = this.v3.toArray();
+      return data;
+    }
+    fromJSON(json) {
+      super.fromJSON(json);
+      this.v0.fromArray(json.v0);
+      this.v1.fromArray(json.v1);
+      this.v2.fromArray(json.v2);
+      this.v3.fromArray(json.v3);
+      return this;
+    }
+  };
+  var CubicBezierCurve3 = class extends Curve {
+    constructor(v0 = new Vector3(), v1 = new Vector3(), v2 = new Vector3(), v3 = new Vector3()) {
+      super();
+      this.isCubicBezierCurve3 = true;
+      this.type = "CubicBezierCurve3";
+      this.v0 = v0;
+      this.v1 = v1;
+      this.v2 = v2;
+      this.v3 = v3;
+    }
+    getPoint(t2, optionalTarget = new Vector3()) {
+      const point = optionalTarget;
+      const v0 = this.v0, v1 = this.v1, v2 = this.v2, v3 = this.v3;
+      point.set(
+        CubicBezier(t2, v0.x, v1.x, v2.x, v3.x),
+        CubicBezier(t2, v0.y, v1.y, v2.y, v3.y),
+        CubicBezier(t2, v0.z, v1.z, v2.z, v3.z)
+      );
+      return point;
+    }
+    copy(source) {
+      super.copy(source);
+      this.v0.copy(source.v0);
+      this.v1.copy(source.v1);
+      this.v2.copy(source.v2);
+      this.v3.copy(source.v3);
+      return this;
+    }
+    toJSON() {
+      const data = super.toJSON();
+      data.v0 = this.v0.toArray();
+      data.v1 = this.v1.toArray();
+      data.v2 = this.v2.toArray();
+      data.v3 = this.v3.toArray();
+      return data;
+    }
+    fromJSON(json) {
+      super.fromJSON(json);
+      this.v0.fromArray(json.v0);
+      this.v1.fromArray(json.v1);
+      this.v2.fromArray(json.v2);
+      this.v3.fromArray(json.v3);
+      return this;
+    }
+  };
+  var LineCurve = class extends Curve {
+    constructor(v1 = new Vector2(), v2 = new Vector2()) {
+      super();
+      this.isLineCurve = true;
+      this.type = "LineCurve";
+      this.v1 = v1;
+      this.v2 = v2;
+    }
+    getPoint(t2, optionalTarget = new Vector2()) {
+      const point = optionalTarget;
+      if (t2 === 1) {
+        point.copy(this.v2);
+      } else {
+        point.copy(this.v2).sub(this.v1);
+        point.multiplyScalar(t2).add(this.v1);
+      }
+      return point;
+    }
+    // Line curve is linear, so we can overwrite default getPointAt
+    getPointAt(u2, optionalTarget) {
+      return this.getPoint(u2, optionalTarget);
+    }
+    getTangent(t2, optionalTarget = new Vector2()) {
+      return optionalTarget.subVectors(this.v2, this.v1).normalize();
+    }
+    getTangentAt(u2, optionalTarget) {
+      return this.getTangent(u2, optionalTarget);
+    }
+    copy(source) {
+      super.copy(source);
+      this.v1.copy(source.v1);
+      this.v2.copy(source.v2);
+      return this;
+    }
+    toJSON() {
+      const data = super.toJSON();
+      data.v1 = this.v1.toArray();
+      data.v2 = this.v2.toArray();
+      return data;
+    }
+    fromJSON(json) {
+      super.fromJSON(json);
+      this.v1.fromArray(json.v1);
+      this.v2.fromArray(json.v2);
+      return this;
+    }
+  };
+  var LineCurve3 = class extends Curve {
+    constructor(v1 = new Vector3(), v2 = new Vector3()) {
+      super();
+      this.isLineCurve3 = true;
+      this.type = "LineCurve3";
+      this.v1 = v1;
+      this.v2 = v2;
+    }
+    getPoint(t2, optionalTarget = new Vector3()) {
+      const point = optionalTarget;
+      if (t2 === 1) {
+        point.copy(this.v2);
+      } else {
+        point.copy(this.v2).sub(this.v1);
+        point.multiplyScalar(t2).add(this.v1);
+      }
+      return point;
+    }
+    // Line curve is linear, so we can overwrite default getPointAt
+    getPointAt(u2, optionalTarget) {
+      return this.getPoint(u2, optionalTarget);
+    }
+    getTangent(t2, optionalTarget = new Vector3()) {
+      return optionalTarget.subVectors(this.v2, this.v1).normalize();
+    }
+    getTangentAt(u2, optionalTarget) {
+      return this.getTangent(u2, optionalTarget);
+    }
+    copy(source) {
+      super.copy(source);
+      this.v1.copy(source.v1);
+      this.v2.copy(source.v2);
+      return this;
+    }
+    toJSON() {
+      const data = super.toJSON();
+      data.v1 = this.v1.toArray();
+      data.v2 = this.v2.toArray();
+      return data;
+    }
+    fromJSON(json) {
+      super.fromJSON(json);
+      this.v1.fromArray(json.v1);
+      this.v2.fromArray(json.v2);
+      return this;
+    }
+  };
+  var QuadraticBezierCurve = class extends Curve {
+    constructor(v0 = new Vector2(), v1 = new Vector2(), v2 = new Vector2()) {
+      super();
+      this.isQuadraticBezierCurve = true;
+      this.type = "QuadraticBezierCurve";
+      this.v0 = v0;
+      this.v1 = v1;
+      this.v2 = v2;
+    }
+    getPoint(t2, optionalTarget = new Vector2()) {
+      const point = optionalTarget;
+      const v0 = this.v0, v1 = this.v1, v2 = this.v2;
+      point.set(
+        QuadraticBezier(t2, v0.x, v1.x, v2.x),
+        QuadraticBezier(t2, v0.y, v1.y, v2.y)
+      );
+      return point;
+    }
+    copy(source) {
+      super.copy(source);
+      this.v0.copy(source.v0);
+      this.v1.copy(source.v1);
+      this.v2.copy(source.v2);
+      return this;
+    }
+    toJSON() {
+      const data = super.toJSON();
+      data.v0 = this.v0.toArray();
+      data.v1 = this.v1.toArray();
+      data.v2 = this.v2.toArray();
+      return data;
+    }
+    fromJSON(json) {
+      super.fromJSON(json);
+      this.v0.fromArray(json.v0);
+      this.v1.fromArray(json.v1);
+      this.v2.fromArray(json.v2);
+      return this;
+    }
+  };
+  var QuadraticBezierCurve3 = class extends Curve {
+    constructor(v0 = new Vector3(), v1 = new Vector3(), v2 = new Vector3()) {
+      super();
+      this.isQuadraticBezierCurve3 = true;
+      this.type = "QuadraticBezierCurve3";
+      this.v0 = v0;
+      this.v1 = v1;
+      this.v2 = v2;
+    }
+    getPoint(t2, optionalTarget = new Vector3()) {
+      const point = optionalTarget;
+      const v0 = this.v0, v1 = this.v1, v2 = this.v2;
+      point.set(
+        QuadraticBezier(t2, v0.x, v1.x, v2.x),
+        QuadraticBezier(t2, v0.y, v1.y, v2.y),
+        QuadraticBezier(t2, v0.z, v1.z, v2.z)
+      );
+      return point;
+    }
+    copy(source) {
+      super.copy(source);
+      this.v0.copy(source.v0);
+      this.v1.copy(source.v1);
+      this.v2.copy(source.v2);
+      return this;
+    }
+    toJSON() {
+      const data = super.toJSON();
+      data.v0 = this.v0.toArray();
+      data.v1 = this.v1.toArray();
+      data.v2 = this.v2.toArray();
+      return data;
+    }
+    fromJSON(json) {
+      super.fromJSON(json);
+      this.v0.fromArray(json.v0);
+      this.v1.fromArray(json.v1);
+      this.v2.fromArray(json.v2);
+      return this;
+    }
+  };
+  var SplineCurve = class extends Curve {
+    constructor(points = []) {
+      super();
+      this.isSplineCurve = true;
+      this.type = "SplineCurve";
+      this.points = points;
+    }
+    getPoint(t2, optionalTarget = new Vector2()) {
+      const point = optionalTarget;
+      const points = this.points;
+      const p2 = (points.length - 1) * t2;
+      const intPoint = Math.floor(p2);
+      const weight = p2 - intPoint;
+      const p0 = points[intPoint === 0 ? intPoint : intPoint - 1];
+      const p1 = points[intPoint];
+      const p22 = points[intPoint > points.length - 2 ? points.length - 1 : intPoint + 1];
+      const p3 = points[intPoint > points.length - 3 ? points.length - 1 : intPoint + 2];
+      point.set(
+        CatmullRom(weight, p0.x, p1.x, p22.x, p3.x),
+        CatmullRom(weight, p0.y, p1.y, p22.y, p3.y)
+      );
+      return point;
+    }
+    copy(source) {
+      super.copy(source);
+      this.points = [];
+      for (let i2 = 0, l2 = source.points.length; i2 < l2; i2++) {
+        const point = source.points[i2];
+        this.points.push(point.clone());
+      }
+      return this;
+    }
+    toJSON() {
+      const data = super.toJSON();
+      data.points = [];
+      for (let i2 = 0, l2 = this.points.length; i2 < l2; i2++) {
+        const point = this.points[i2];
+        data.points.push(point.toArray());
+      }
+      return data;
+    }
+    fromJSON(json) {
+      super.fromJSON(json);
+      this.points = [];
+      for (let i2 = 0, l2 = json.points.length; i2 < l2; i2++) {
+        const point = json.points[i2];
+        this.points.push(new Vector2().fromArray(point));
+      }
+      return this;
+    }
+  };
+  var Curves = /* @__PURE__ */ Object.freeze({
+    __proto__: null,
+    ArcCurve,
+    CatmullRomCurve3,
+    CubicBezierCurve,
+    CubicBezierCurve3,
+    EllipseCurve,
+    LineCurve,
+    LineCurve3,
+    QuadraticBezierCurve,
+    QuadraticBezierCurve3,
+    SplineCurve
+  });
   var CylinderGeometry = class _CylinderGeometry extends BufferGeometry {
     constructor(radiusTop = 1, radiusBottom = 1, height = 1, radialSegments = 32, heightSegments = 1, openEnded = false, thetaStart = 0, thetaLength = Math.PI * 2) {
       super();
@@ -19634,6 +20858,163 @@ globalThis.__FR5_BUILD_METADATA__=Object.freeze({"schemaVersion":1,"robotModel":
     }
     static fromJSON(data) {
       return new _SphereGeometry(data.radius, data.widthSegments, data.heightSegments, data.phiStart, data.phiLength, data.thetaStart, data.thetaLength);
+    }
+  };
+  var TorusGeometry = class _TorusGeometry extends BufferGeometry {
+    constructor(radius = 1, tube = 0.4, radialSegments = 12, tubularSegments = 48, arc = Math.PI * 2) {
+      super();
+      this.type = "TorusGeometry";
+      this.parameters = {
+        radius,
+        tube,
+        radialSegments,
+        tubularSegments,
+        arc
+      };
+      radialSegments = Math.floor(radialSegments);
+      tubularSegments = Math.floor(tubularSegments);
+      const indices = [];
+      const vertices = [];
+      const normals = [];
+      const uvs = [];
+      const center = new Vector3();
+      const vertex2 = new Vector3();
+      const normal = new Vector3();
+      for (let j = 0; j <= radialSegments; j++) {
+        for (let i2 = 0; i2 <= tubularSegments; i2++) {
+          const u2 = i2 / tubularSegments * arc;
+          const v2 = j / radialSegments * Math.PI * 2;
+          vertex2.x = (radius + tube * Math.cos(v2)) * Math.cos(u2);
+          vertex2.y = (radius + tube * Math.cos(v2)) * Math.sin(u2);
+          vertex2.z = tube * Math.sin(v2);
+          vertices.push(vertex2.x, vertex2.y, vertex2.z);
+          center.x = radius * Math.cos(u2);
+          center.y = radius * Math.sin(u2);
+          normal.subVectors(vertex2, center).normalize();
+          normals.push(normal.x, normal.y, normal.z);
+          uvs.push(i2 / tubularSegments);
+          uvs.push(j / radialSegments);
+        }
+      }
+      for (let j = 1; j <= radialSegments; j++) {
+        for (let i2 = 1; i2 <= tubularSegments; i2++) {
+          const a2 = (tubularSegments + 1) * j + i2 - 1;
+          const b2 = (tubularSegments + 1) * (j - 1) + i2 - 1;
+          const c2 = (tubularSegments + 1) * (j - 1) + i2;
+          const d2 = (tubularSegments + 1) * j + i2;
+          indices.push(a2, b2, d2);
+          indices.push(b2, c2, d2);
+        }
+      }
+      this.setIndex(indices);
+      this.setAttribute("position", new Float32BufferAttribute(vertices, 3));
+      this.setAttribute("normal", new Float32BufferAttribute(normals, 3));
+      this.setAttribute("uv", new Float32BufferAttribute(uvs, 2));
+    }
+    copy(source) {
+      super.copy(source);
+      this.parameters = Object.assign({}, source.parameters);
+      return this;
+    }
+    static fromJSON(data) {
+      return new _TorusGeometry(data.radius, data.tube, data.radialSegments, data.tubularSegments, data.arc);
+    }
+  };
+  var TubeGeometry = class _TubeGeometry extends BufferGeometry {
+    constructor(path = new QuadraticBezierCurve3(new Vector3(-1, -1, 0), new Vector3(-1, 1, 0), new Vector3(1, 1, 0)), tubularSegments = 64, radius = 1, radialSegments = 8, closed = false) {
+      super();
+      this.type = "TubeGeometry";
+      this.parameters = {
+        path,
+        tubularSegments,
+        radius,
+        radialSegments,
+        closed
+      };
+      const frames = path.computeFrenetFrames(tubularSegments, closed);
+      this.tangents = frames.tangents;
+      this.normals = frames.normals;
+      this.binormals = frames.binormals;
+      const vertex2 = new Vector3();
+      const normal = new Vector3();
+      const uv = new Vector2();
+      let P2 = new Vector3();
+      const vertices = [];
+      const normals = [];
+      const uvs = [];
+      const indices = [];
+      generateBufferData();
+      this.setIndex(indices);
+      this.setAttribute("position", new Float32BufferAttribute(vertices, 3));
+      this.setAttribute("normal", new Float32BufferAttribute(normals, 3));
+      this.setAttribute("uv", new Float32BufferAttribute(uvs, 2));
+      function generateBufferData() {
+        for (let i2 = 0; i2 < tubularSegments; i2++) {
+          generateSegment(i2);
+        }
+        generateSegment(closed === false ? tubularSegments : 0);
+        generateUVs();
+        generateIndices();
+      }
+      function generateSegment(i2) {
+        P2 = path.getPointAt(i2 / tubularSegments, P2);
+        const N = frames.normals[i2];
+        const B = frames.binormals[i2];
+        for (let j = 0; j <= radialSegments; j++) {
+          const v2 = j / radialSegments * Math.PI * 2;
+          const sin = Math.sin(v2);
+          const cos = -Math.cos(v2);
+          normal.x = cos * N.x + sin * B.x;
+          normal.y = cos * N.y + sin * B.y;
+          normal.z = cos * N.z + sin * B.z;
+          normal.normalize();
+          normals.push(normal.x, normal.y, normal.z);
+          vertex2.x = P2.x + radius * normal.x;
+          vertex2.y = P2.y + radius * normal.y;
+          vertex2.z = P2.z + radius * normal.z;
+          vertices.push(vertex2.x, vertex2.y, vertex2.z);
+        }
+      }
+      function generateIndices() {
+        for (let j = 1; j <= tubularSegments; j++) {
+          for (let i2 = 1; i2 <= radialSegments; i2++) {
+            const a2 = (radialSegments + 1) * (j - 1) + (i2 - 1);
+            const b2 = (radialSegments + 1) * j + (i2 - 1);
+            const c2 = (radialSegments + 1) * j + i2;
+            const d2 = (radialSegments + 1) * (j - 1) + i2;
+            indices.push(a2, b2, d2);
+            indices.push(b2, c2, d2);
+          }
+        }
+      }
+      function generateUVs() {
+        for (let i2 = 0; i2 <= tubularSegments; i2++) {
+          for (let j = 0; j <= radialSegments; j++) {
+            uv.x = i2 / tubularSegments;
+            uv.y = j / radialSegments;
+            uvs.push(uv.x, uv.y);
+          }
+        }
+      }
+    }
+    copy(source) {
+      super.copy(source);
+      this.parameters = Object.assign({}, source.parameters);
+      return this;
+    }
+    toJSON() {
+      const data = super.toJSON();
+      data.path = this.parameters.path.toJSON();
+      return data;
+    }
+    static fromJSON(data) {
+      return new _TubeGeometry(
+        new Curves[data.path.type]().fromJSON(data.path),
+        data.tubularSegments,
+        data.radius,
+        data.radialSegments,
+        data.closed
+      );
     }
   };
   var MeshStandardMaterial = class extends Material {
@@ -26561,7 +27942,17 @@ globalThis.__FR5_BUILD_METADATA__=Object.freeze({"schemaVersion":1,"robotModel":
         poses: Object.freeze({ home: Object.freeze([0, -PI / 2, PI / 3, -5 * PI / 6, -PI / 2, 0]), zero: Object.freeze([0, 0, 0, 0, 0, 0]), up: Object.freeze([0, -PI / 2, 0, -PI / 2, -PI / 2, 0]) }),
         visualBundle: "__UR20_VISUAL_ASSETS__",
         assetBase: "./assets/ur20/visual/",
-        comparisonHeading: 0
+        comparisonHeading: 0,
+        baseReference: Object.freeze({
+          // The UR robot cable is fixed to the stationary base on robot-local +Y.
+          outletAxis: Object.freeze([0, 1, 0]),
+          baseRadius: 0.122,
+          outletHeight: 0.08,
+          label: "ROBOT CABLE",
+          uiLabel: "Robot cable (fixed base)",
+          cameraTarget: Object.freeze([0, 0, 0.78]),
+          cameraDistance: 4.05
+        })
       }),
       fr5: Object.freeze({
         id: "fr5",
@@ -26596,7 +27987,17 @@ globalThis.__FR5_BUILD_METADATA__=Object.freeze({"schemaVersion":1,"robotModel":
         poses: Object.freeze({ home: Object.freeze([0, rad(-90), rad(90), rad(-90), rad(-90), 0]), zero: Object.freeze([0, 0, 0, 0, 0, 0]), up: Object.freeze([0, rad(-90), 0, rad(-90), rad(-90), 0]) }),
         visualBundle: "__FR5_VISUAL_ASSETS__",
         assetBase: "./assets/fr5/visual/",
-        comparisonHeading: PI
+        comparisonHeading: PI,
+        baseReference: Object.freeze({
+          // Model-803 controller outlet is fixed to the base at app-local +45 degrees.
+          outletAxis: Object.freeze([Math.SQRT1_2, Math.SQRT1_2, 0]),
+          baseRadius: 0.095,
+          outletHeight: 0.068,
+          label: "CONTROLLER OUTLET",
+          uiLabel: "Controller outlet (fixed base)",
+          cameraTarget: Object.freeze([0, 0, 0.72]),
+          cameraDistance: 4.05
+        })
       })
     };
     const profile = profiles[id];
@@ -26898,7 +28299,7 @@ globalThis.__FR5_BUILD_METADATA__=Object.freeze({"schemaVersion":1,"robotModel":
       return Math.max(1, Math.floor(seconds / PROFILE2.controllerPeriod + 0.5 + EPS));
     }
     function stepsToSeconds(steps) {
-      return Math.max(0, Math.round(Number(steps) || 0)) * PROFILE2.controllerPeriod;
+      return Math.max(0, Number(steps) || 0) * PROFILE2.controllerPeriod;
     }
     function integrate(state, duration, jerk) {
       return {
@@ -27450,12 +28851,15 @@ globalThis.__FR5_BUILD_METADATA__=Object.freeze({"schemaVersion":1,"robotModel":
       predictMoveJ,
       commandForDurationSteps,
       sample,
-      isJointVector
+      isJointVector,
+      pathIsLegal
     } = MoveJEngine;
     const WAIT_MIN_DUR2 = 0.1;
     const WAIT_MIN_STEPS = secondsToSteps(WAIT_MIN_DUR2);
     const BOUNDARY_TOL = 0.05;
     function durationStepsOf(wp) {
+      if (wp?.timingMode === "sampled" && Number.isFinite(wp.durationSteps) && wp.durationSteps >= 0) return wp.durationSteps;
+      if (wp?.source?.exactTiming === true && Number.isFinite(wp.durationSteps) && wp.durationSteps >= 0) return wp.durationSteps;
       if (Number.isInteger(wp && wp.durationSteps) && wp.durationSteps >= 0) return wp.durationSteps;
       return secondsToSteps(Math.max(0, Number(wp && wp.duration) || 0));
     }
@@ -27482,6 +28886,63 @@ globalThis.__FR5_BUILD_METADATA__=Object.freeze({"schemaVersion":1,"robotModel":
     }
     function resolveMoveBlock(wp, qStart) {
       if (!isJointVector(wp.q)) throw new Error(`${wp.name || "moveJ"} has an invalid joint target`);
+      if (wp.timingMode === "sampled") {
+        const trace = wp.source?.trace;
+        const positions = trace?.positionsRad, durations = trace?.frameDurationsS, endTimes = trace?.endTimesS;
+        if (!Array.isArray(positions) || !Array.isArray(durations) || !durations.length || positions.length !== durations.length * 6) {
+          throw new Error(`${wp.name || "ServoJ trajectory"} has invalid sampled trajectory data`);
+        }
+        if (endTimes != null && (!Array.isArray(endTimes) || endTimes.length !== durations.length)) {
+          throw new Error(`${wp.name || "ServoJ trajectory"} has invalid sampled timestamps`);
+        }
+        if (trace.startQ && (!isJointVector(trace.startQ) || trace.startQ.some((value, index) => Math.abs(value - qStart[index]) > 1e-7))) {
+          throw new Error(`${wp.name || "ServoJ trajectory"} starts from a different robot configuration`);
+        }
+        let elapsed = 0;
+        for (let frame = 0; frame < durations.length; frame++) {
+          const duration = Number(durations[frame]);
+          const q = positions.slice(frame * 6, frame * 6 + 6);
+          if (!(duration > 0) || !isJointVector(q) || !pathIsLegal(q, q)) {
+            throw new Error(`${wp.name || "ServoJ trajectory"} has invalid frame ${frame + 1}`);
+          }
+          elapsed += duration;
+          if (endTimes && Math.abs(Number(endTimes[frame]) - elapsed) > 1e-8) {
+            throw new Error(`${wp.name || "ServoJ trajectory"} has inconsistent frame timestamps`);
+          }
+        }
+        const finalQ = positions.slice(-6);
+        if (finalQ.some((value, index) => Math.abs(value - wp.q[index]) > 1e-9)) {
+          throw new Error(`${wp.name || "ServoJ trajectory"} endpoint disagrees with its sampled data`);
+        }
+        const rawSteps = elapsed / PROFILE2.controllerPeriod;
+        const nearestStep = Math.round(rawSteps);
+        const steps = Math.abs(rawSteps - nearestStep) <= 1e-7 ? nearestStep : rawSteps;
+        return {
+          ...wp,
+          durationSteps: steps,
+          duration: elapsed,
+          timingMode: "sampled",
+          command: null,
+          timing: {
+            profileId: PROFILE2.id,
+            profileFingerprint: PROFILE2.fingerprint,
+            requestSignature: `sampled:${durations.length}:${elapsed.toFixed(9)}`,
+            wholeCallSteps: steps,
+            continuousSeconds: elapsed,
+            minimumSteps: steps,
+            regime: "sampled-servoj",
+            containsCruise: false,
+            leadingJoints: [],
+            certified: true,
+            certificationReasons: [],
+            uncertaintyLowerSteps: 0,
+            uncertaintyUpperSteps: 0,
+            sampled: true
+          },
+          _calibratedAV: void 0,
+          validation: void 0
+        };
+      }
       const minimum = fastestEquivalent(qStart, wp.q);
       let result, mode = wp.timingMode;
       if (mode === "command" && wp.command) {
@@ -27503,11 +28964,62 @@ globalThis.__FR5_BUILD_METADATA__=Object.freeze({"schemaVersion":1,"robotModel":
         validation: void 0
       };
     }
+    function retimeSampledBlock(block, targetSteps) {
+      const trace = block.source?.trace;
+      const basis = trace?.retimeBasis || trace;
+      const positions = basis?.positionsRad, durations = basis?.frameDurationsS;
+      if (!Array.isArray(positions) || !Array.isArray(durations) || !durations.length || positions.length !== durations.length * 6) {
+        throw new Error(`${block.name || "ServoJ trajectory"} has invalid sampled trajectory data`);
+      }
+      const basisEndTimes = Array.isArray(basis.endTimesS) && basis.endTimesS.length === durations.length ? basis.endTimesS : durations.reduce((times, value) => {
+        times.push((times[times.length - 1] || 0) + Number(value));
+        return times;
+      }, []);
+      const sourceDuration = Number(basisEndTimes[basisEndTimes.length - 1]);
+      if (!(sourceDuration > 0)) throw new Error(`${block.name || "ServoJ trajectory"} has no positive duration`);
+      const steps = Math.max(1, Math.round(Number(targetSteps) || 0));
+      const frameDurationsS = new Array(steps).fill(PROFILE2.controllerPeriod);
+      const endTimesS = new Array(steps);
+      const positionsRad = new Array(steps * 6);
+      const startQ = isJointVector(basis.startQ) ? basis.startQ : isJointVector(trace?.startQ) ? trace.startQ : positions.slice(0, 6);
+      let sourceFrame = 0, elapsed = 0;
+      for (let tick = 1; tick <= steps; tick++) {
+        const sourceTime = sourceDuration * (tick / steps);
+        while (sourceFrame < basisEndTimes.length - 1 && basisEndTimes[sourceFrame] < sourceTime - 1e-12) sourceFrame++;
+        const frameStart = sourceFrame === 0 ? 0 : Number(basisEndTimes[sourceFrame - 1]);
+        const frameEnd = Number(basisEndTimes[sourceFrame]);
+        const from = sourceFrame === 0 ? startQ : positions.slice((sourceFrame - 1) * 6, sourceFrame * 6);
+        const to = positions.slice(sourceFrame * 6, sourceFrame * 6 + 6);
+        const phase = frameEnd <= frameStart ? 1 : Math.max(0, Math.min(1, (sourceTime - frameStart) / (frameEnd - frameStart)));
+        for (let joint = 0; joint < 6; joint++) positionsRad[(tick - 1) * 6 + joint] = from[joint] + (to[joint] - from[joint]) * phase;
+        elapsed += PROFILE2.controllerPeriod;
+        endTimesS[tick - 1] = elapsed;
+      }
+      for (let joint = 0; joint < 6; joint++) positionsRad[(steps - 1) * 6 + joint] = positions[positions.length - 6 + joint];
+      const retimeBasis = trace?.retimeBasis || {
+        startQ: [...startQ],
+        positionsRad: [...positions],
+        frameDurationsS: [...durations],
+        endTimesS: [...basisEndTimes]
+      };
+      return {
+        ...block,
+        durationSteps: steps,
+        duration: stepsToSeconds(steps),
+        timingMode: "sampled",
+        command: null,
+        source: {
+          ...block.source,
+          retimed: true,
+          trace: { ...trace, startQ: [...startQ], positionsRad, frameDurationsS, endTimesS, retimeBasis }
+        }
+      };
+    }
     function resolveSequence(waypoints, fallbackQ = POSE_HOME2) {
       let previousQ = fallbackQ;
       return waypoints.map((wp) => {
         if (wp.type === "wait") {
-          const steps = Math.max(WAIT_MIN_STEPS, durationStepsOf(wp));
+          const steps = wp.source?.exactTiming === true ? Math.max(0, durationStepsOf(wp)) : Math.max(WAIT_MIN_STEPS, durationStepsOf(wp));
           return {
             ...wp,
             q: null,
@@ -27549,6 +29061,7 @@ globalThis.__FR5_BUILD_METADATA__=Object.freeze({"schemaVersion":1,"robotModel":
       const wp = waypoints[index];
       if (!wp) return WAIT_MIN_DUR2;
       if (wp.type === "wait" || !wp.q) return WAIT_MIN_DUR2;
+      if (wp.timingMode === "sampled") return PROFILE2.controllerPeriod;
       const prevQ = previousMotionQ(waypoints, index, fallbackQ);
       return fastestEquivalent(prevQ, wp.q).durationSeconds;
     }
@@ -27572,40 +29085,71 @@ globalThis.__FR5_BUILD_METADATA__=Object.freeze({"schemaVersion":1,"robotModel":
       }
       return { kind: "boundary", atIndex: withT.length };
     }
-    function rollResize(waypoints, index, side, newOwnDuration, fallbackQ = POSE_HOME2) {
+    function isOwnedTimingGap(wp, ownerId) {
+      return wp?.type === "wait" && wp.source?.kind === "duration-gap" && wp.source?.afterBlockId === ownerId;
+    }
+    function resizePreservingDownstream(waypoints, index, requestedSteps, fallbackQ = POSE_HOME2, gapIdFactory = null, retimeSampled = true) {
       const wps = waypoints.map((w2) => ({ ...w2 }));
       const wp = wps[index];
       if (!wp) return waypoints;
+      if (wp.source?.kind === "duration-gap") return waypoints;
       const minSteps = secondsToSteps(minDurationFor2(wps, index, fallbackQ));
-      const desiredSteps = Math.max(0, secondsToSteps(newOwnDuration));
+      const desiredSteps = Math.max(minSteps, Math.round(Number(requestedSteps) || 0));
       const setSteps = (block, steps) => {
+        if (block.timingMode === "sampled") {
+          const resized = retimeSampled ? retimeSampledBlock(block, steps) : { ...block, durationSteps: steps, duration: stepsToSeconds(steps) };
+          Object.assign(block, resized);
+          return;
+        }
         block.durationSteps = steps;
         block.duration = stepsToSeconds(steps);
         if (block.type === "moveJ") block.timingMode = "authored";
       };
-      if (side === "right") {
-        const neighbor = wps[index + 1];
-        if (!neighbor) {
-          setSteps(wp, Math.max(minSteps, desiredSteps));
-          return resolveSequence(wps, fallbackQ);
-        }
-        const pairTotal2 = durationStepsOf(wp) + durationStepsOf(neighbor);
-        const neighborMinSteps = secondsToSteps(minDurationFor2(wps, index + 1, fallbackQ));
-        const ownSteps2 = Math.max(minSteps, Math.min(pairTotal2 - neighborMinSteps, desiredSteps));
-        setSteps(wp, ownSteps2);
-        setSteps(neighbor, pairTotal2 - ownSteps2);
-        return resolveSequence(wps, fallbackQ);
+      const ownerId = wp.id || `block-${index}`;
+      const oldSteps = durationStepsOf(wp);
+      const existingGap = isOwnedTimingGap(wps[index + 1], ownerId) ? wps[index + 1] : null;
+      const existingGapSteps = existingGap ? durationStepsOf(existingGap) : 0;
+      const successorIndex = index + 1 + (existingGap ? 1 : 0);
+      if (successorIndex >= wps.length) {
+        if (existingGap) wps.splice(index + 1, 1);
+        setSteps(wp, desiredSteps);
+        return retimeSampled ? resolveSequence(wps, fallbackQ) : wps;
       }
-      const prev = wps[index - 1];
-      if (!prev) {
-        return wps;
-      }
-      const pairTotal = durationStepsOf(prev) + durationStepsOf(wp);
-      const prevMinSteps = secondsToSteps(minDurationFor2(wps, index - 1, fallbackQ));
-      const ownSteps = Math.max(minSteps, Math.min(pairTotal - prevMinSteps, desiredSteps));
+      const fixedSlotSteps = oldSteps + existingGapSteps;
+      const ownSteps = Math.min(fixedSlotSteps, desiredSteps);
+      const gapSteps = fixedSlotSteps - ownSteps;
       setSteps(wp, ownSteps);
-      setSteps(prev, pairTotal - ownSteps);
-      return resolveSequence(wps, fallbackQ);
+      if (gapSteps > 0) {
+        if (existingGap) {
+          setSteps(existingGap, gapSteps);
+        } else {
+          const gapId = typeof gapIdFactory === "function" ? gapIdFactory() : `timing_gap_after_${String(ownerId).replace(/[^a-zA-Z0-9_-]/g, "_")}`;
+          wps.splice(index + 1, 0, {
+            id: gapId,
+            name: `Auto wait after ${wp.name || "block"}`,
+            type: "wait",
+            q: null,
+            pos: null,
+            durationSteps: gapSteps,
+            duration: stepsToSeconds(gapSteps),
+            timingMode: null,
+            source: { format: "editor", kind: "duration-gap", afterBlockId: ownerId, exactTiming: true }
+          });
+        }
+      } else if (existingGap) {
+        wps.splice(index + 1, 1);
+      }
+      return retimeSampled ? resolveSequence(wps, fallbackQ) : wps;
+    }
+    function resizePreservingDownstreamSeconds(waypoints, index, newOwnDuration, fallbackQ = POSE_HOME2, gapIdFactory = null, retimeSampled = true) {
+      return resizePreservingDownstream(
+        waypoints,
+        index,
+        secondsToSteps(Math.max(0, Number(newOwnDuration) || 0)),
+        fallbackQ,
+        gapIdFactory,
+        retimeSampled
+      );
     }
     function reorder(waypoints, fromIndex, toIndex) {
       const wps = waypoints.map((w2) => ({ ...w2 }));
@@ -27626,6 +29170,24 @@ globalThis.__FR5_BUILD_METADATA__=Object.freeze({"schemaVersion":1,"robotModel":
         if (t2 <= b2.end) {
           if (b2.type === "wait" || !b2.q) return lastMoveQBefore(i2);
           const prevQ = lastMoveQBefore(i2);
+          if (b2.timingMode === "sampled" && b2.source?.trace) {
+            const trace = b2.source.trace;
+            const positions = trace.positionsRad, endTimes = trace.endTimesS;
+            const local = Math.max(0, t2 - b2.start);
+            let lo = 0, hi = endTimes.length - 1;
+            while (lo < hi) {
+              const mid = lo + hi >>> 1;
+              if (endTimes[mid] < local) lo = mid + 1;
+              else hi = mid;
+            }
+            const frame = lo;
+            const frameStart = frame === 0 ? 0 : endTimes[frame - 1];
+            const frameEnd = endTimes[frame];
+            const from = frame === 0 ? prevQ : positions.slice((frame - 1) * 6, frame * 6);
+            const to = positions.slice(frame * 6, frame * 6 + 6);
+            const phase = frameEnd <= frameStart ? 1 : Math.max(0, Math.min(1, (local - frameStart) / (frameEnd - frameStart)));
+            return from.map((value, joint) => value + (to[joint] - value) * phase);
+          }
           const command = b2.command || { a: PROFILE2.maxAcceleration, v: PROFILE2.maxVelocity };
           const solved = predictMoveJ(prevQ, b2.q, command.a, command.v);
           return sample(solved, t2 - b2.start).q;
@@ -27662,7 +29224,7 @@ globalThis.__FR5_BUILD_METADATA__=Object.freeze({"schemaVersion":1,"robotModel":
       const changed = fixed.some((wp, i2) => {
         const old = waypoints[i2];
         if (!old || durationStepsOf(old) !== wp.durationSteps || old.timingMode !== wp.timingMode) return true;
-        if (wp.type === "moveJ") {
+        if (wp.type === "moveJ" && wp.timingMode !== "sampled") {
           return !old.command || Math.abs(Number(old.command.a) - wp.command.a) > 1e-12 || Math.abs(Number(old.command.v) - wp.command.v) > 1e-12 || !old.timing || old.timing.requestSignature !== wp.timing.requestSignature;
         }
         return false;
@@ -27676,12 +29238,15 @@ globalThis.__FR5_BUILD_METADATA__=Object.freeze({"schemaVersion":1,"robotModel":
       durationStepsOf,
       previousMotionQ,
       resolveMoveBlock,
+      retimeSampledBlock,
       resolveSequence,
       withTimestamps: withTimestamps2,
       getTotalDuration: getTotalDuration2,
       minDurationFor: minDurationFor2,
       findInsertionContext,
-      rollResize,
+      isOwnedTimingGap,
+      resizePreservingDownstream,
+      resizePreservingDownstreamSeconds,
       reorder,
       poseAtTime: poseAtTime2,
       findReorderTarget,
@@ -27693,11 +29258,14 @@ globalThis.__FR5_BUILD_METADATA__=Object.freeze({"schemaVersion":1,"robotModel":
     const { POSE_HOME: POSE_HOME2, fkEE, getPos } = Kinematics;
     const {
       findInsertionContext,
-      rollResize,
+      resizePreservingDownstream,
+      resizePreservingDownstreamSeconds,
       reorder,
       fixMinimumDurations,
       findNearestBoundaryIndex,
-      resolveSequence
+      resolveSequence,
+      minDurationFor: minDurationFor2,
+      durationStepsOf
     } = Sequence;
     const { PROFILE: PROFILE2, isJointVector, pathIsLegal, secondsToSteps, stepsToSeconds } = MoveJEngine;
     let _idCounter = 0;
@@ -27841,14 +29409,28 @@ globalThis.__FR5_BUILD_METADATA__=Object.freeze({"schemaVersion":1,"robotModel":
       state = { ...state, waypoints: wps, selectedId };
       notify({ type: "waypoints", reason: "remove", id });
     }
+    function durationEditChanged(before, after) {
+      return before.length !== after.length || after.some((block, index) => {
+        const old = before[index];
+        return !old || old.id !== block.id || durationStepsOf(old) !== durationStepsOf(block);
+      });
+    }
     function resizeBlockEdge2(id, side, newOwnDuration) {
       const index = state.waypoints.findIndex((w2) => w2.id === id);
-      if (index < 0) return;
-      if (Math.abs(state.waypoints[index].duration - newOwnDuration) < 1e-6) return;
+      if (index < 0 || side !== "right") return false;
+      if (Math.abs(state.waypoints[index].duration - newOwnDuration) < 1e-6) return false;
+      const wps = resizePreservingDownstreamSeconds(
+        state.waypoints,
+        index,
+        newOwnDuration,
+        state.initialPose,
+        makeId
+      ).map(withCachedPos);
+      if (!durationEditChanged(state.waypoints, wps)) return false;
       pushHistory();
-      const wps = rollResize(state.waypoints, index, side, newOwnDuration, state.initialPose).map(withCachedPos);
       state = { ...state, waypoints: wps };
       notify({ type: "waypoints", reason: "resize", id });
+      return true;
     }
     function reorderBlock2(id, toIndex) {
       const fromIndex = state.waypoints.findIndex((w2) => w2.id === id);
@@ -27884,16 +29466,18 @@ globalThis.__FR5_BUILD_METADATA__=Object.freeze({"schemaVersion":1,"robotModel":
       const index = state.waypoints.findIndex((w2) => w2.id === id);
       if (index < 0) return false;
       const original = state.waypoints[index];
+      if (original.source?.kind === "duration-gap") return false;
       const steps = original.type === "wait" ? Math.max(Sequence.WAIT_MIN_STEPS, Math.round(Number(requestedSteps) || 0)) : Math.max(1, Math.round(Number(requestedSteps) || 0));
       if (steps === original.durationSteps) return false;
+      const waypoints = resizePreservingDownstream(
+        state.waypoints,
+        index,
+        steps,
+        state.initialPose,
+        makeId
+      ).map(withCachedPos);
+      if (!durationEditChanged(state.waypoints, waypoints)) return false;
       pushHistory();
-      const edited = state.waypoints.map((w2) => w2.id === id ? {
-        ...w2,
-        durationSteps: steps,
-        duration: stepsToSeconds(steps),
-        timingMode: w2.type === "moveJ" ? "authored" : null
-      } : w2);
-      const waypoints = resolveSequence(edited, state.initialPose);
       state = { ...state, waypoints, selectedId: id };
       notify({
         type: "waypoints",
@@ -27907,13 +29491,10 @@ globalThis.__FR5_BUILD_METADATA__=Object.freeze({"schemaVersion":1,"robotModel":
     function setBlockToMinimum2(id) {
       const index = state.waypoints.findIndex((w2) => w2.id === id);
       if (index < 0 || state.waypoints[index].type !== "moveJ") return false;
-      if (state.waypoints[index].timingMode === "fastest") return false;
-      pushHistory();
-      const edited = state.waypoints.map((w2) => w2.id === id ? { ...w2, timingMode: "fastest" } : w2);
-      const waypoints = resolveSequence(edited, state.initialPose);
-      state = { ...state, waypoints, selectedId: id };
-      notify({ type: "waypoints", reason: "minimum", id });
-      return true;
+      return setBlockDurationSteps2(
+        id,
+        secondsToSteps(minDurationFor2(state.waypoints, index, state.initialPose))
+      );
     }
     function duplicateWaypoint2(id) {
       const index = state.waypoints.findIndex((w2) => w2.id === id);
@@ -27957,7 +29538,8 @@ globalThis.__FR5_BUILD_METADATA__=Object.freeze({"schemaVersion":1,"robotModel":
         durationSteps: wp.durationSteps,
         duration: wp.duration,
         timingMode: wp.timingMode,
-        command: wp.command ? { ...wp.command } : null
+        command: wp.command ? { ...wp.command } : null,
+        source: wp.source || null
       };
       return true;
     }
@@ -27978,7 +29560,8 @@ globalThis.__FR5_BUILD_METADATA__=Object.freeze({"schemaVersion":1,"robotModel":
         durationSteps: clipboard.durationSteps,
         duration: clipboard.duration,
         timingMode: clipboard.type === "moveJ" ? clipboard.timingMode || "fastest" : null,
-        command: clipboard.command ? { ...clipboard.command } : null
+        command: clipboard.command ? { ...clipboard.command } : null,
+        source: clipboard.source || null
       });
       let wps = [...state.waypoints];
       wps.splice(index, 0, wp);
@@ -27994,25 +29577,30 @@ globalThis.__FR5_BUILD_METADATA__=Object.freeze({"schemaVersion":1,"robotModel":
       notify({ type: "waypoints", reason: "revalidate" });
       return true;
     }
-    function importBlocks2(blocks, { append = true } = {}) {
+    function importBlocks2(blocks, { append = true, initialPose = null } = {}) {
       if (!Array.isArray(blocks) || !blocks.length) throw new Error("No motion blocks to import");
+      const importedInitial = !append && initialPose != null ? [...initialPose] : state.initialPose;
+      if (!isJointVector(importedInitial) || !pathIsLegal(importedInitial, importedInitial)) {
+        throw new Error("Imported initial pose is outside the configured joint domain");
+      }
       pushHistory();
       const created = blocks.map((block, index) => withCachedPos({
         id: makeId(),
         name: block.name || `${block.type === "wait" ? "Wait" : "Waypoint"} ${state.waypoints.length + index + 1}`,
         type: block.type,
         q: block.type === "moveJ" ? [...block.q] : null,
-        durationSteps: block.type === "wait" ? Math.max(Sequence.WAIT_MIN_STEPS, secondsToSteps(block.duration)) : 0,
-        duration: block.type === "wait" ? Math.max(Sequence.WAIT_MIN_DUR, Number(block.duration) || 0) : 0,
+        durationSteps: block.type === "wait" ? block.source?.exactTiming === true ? Number(block.durationSteps) : Math.max(Sequence.WAIT_MIN_STEPS, secondsToSteps(block.duration)) : block.timingMode === "sampled" ? Number(block.durationSteps) : 0,
+        duration: block.type === "wait" ? block.source?.exactTiming === true ? Number(block.duration) || 0 : Math.max(Sequence.WAIT_MIN_DUR, Number(block.duration) || 0) : block.timingMode === "sampled" ? Number(block.duration) || 0 : 0,
         timingMode: block.type === "moveJ" ? block.timingMode || "command" : null,
         command: block.command ? { a: Number(block.command.a), v: Number(block.command.v), t: 0, r: 0 } : null,
         source: block.source || null
       }));
       const base = append ? [...state.waypoints] : [];
-      const waypoints = resolveSequence([...base, ...created], state.initialPose);
+      const waypoints = resolveSequence([...base, ...created], importedInitial);
       const selectedId = created[created.length - 1].id;
-      state = { ...state, waypoints, selectedId };
+      state = { ...state, waypoints, selectedId, initialPose: importedInitial };
       notify({ type: "waypoints", reason: "import", count: created.length });
+      if (!append && initialPose != null) notify({ type: "initialPose" });
       return created.length;
     }
     function setDisplay2(patch) {
@@ -28055,9 +29643,10 @@ globalThis.__FR5_BUILD_METADATA__=Object.freeze({"schemaVersion":1,"robotModel":
           throw new Error(`Block ${index + 1} has an invalid joint target`);
         }
         const legacySteps = secondsToSteps(Math.max(0, Number(raw.duration) || 0));
-        const durationSteps = Number.isInteger(raw.durationSteps) && raw.durationSteps >= 0 ? raw.durationSteps : legacySteps;
+        const sampled = raw.type === "moveJ" && raw.timingMode === "sampled" && raw.source?.trace;
+        const durationSteps = sampled && Number.isFinite(raw.durationSteps) && raw.durationSteps >= 0 || raw.source?.exactTiming === true && Number.isFinite(raw.durationSteps) && raw.durationSteps >= 0 ? raw.durationSteps : Number.isInteger(raw.durationSteps) && raw.durationSteps >= 0 ? raw.durationSteps : legacySteps;
         const hasBoundedCommand = raw.command && Number(raw.command.a) > 0 && Number(raw.command.a) <= PROFILE2.maxAcceleration && Number(raw.command.v) > 0 && Number(raw.command.v) <= PROFILE2.maxVelocity;
-        const timingMode = raw.type === "moveJ" ? raw.timingMode === "fastest" ? "fastest" : hasBoundedCommand && raw.timingMode === "command" ? "command" : "authored" : null;
+        const timingMode = raw.type === "moveJ" ? sampled ? "sampled" : raw.timingMode === "fastest" ? "fastest" : hasBoundedCommand && raw.timingMode === "command" ? "command" : "authored" : null;
         return withCachedPos({
           ...raw,
           id,
@@ -28174,6 +29763,7 @@ globalThis.__FR5_BUILD_METADATA__=Object.freeze({"schemaVersion":1,"robotModel":
     const { PI, UR20, fkAll, getPos } = Kinematics;
     let renderer, scene, camera, controls;
     let robotRoot, robotContentRoot, schematicVisual, jointSpheres, linkMeshes, eeFrame, arrX, arrY, arrZ;
+    let controllerOutletReference;
     let officialModelRoot, officialLinkRoots = [], officialLoadState = "idle";
     let oring, pathLine, wpMarkers, _wpmGeo, _wpmMatDef, _wpmMatSel;
     let _pathMat;
@@ -28279,6 +29869,115 @@ globalThis.__FR5_BUILD_METADATA__=Object.freeze({"schemaVersion":1,"robotModel":
         const fixedTail = new Matrix4().makeTranslation(UR20.a[frame - 1], 0, 0).multiply(new Matrix4().makeRotationX(UR20.alpha[frame - 1])).invert();
         officialLinkRoots[frame].matrix.copy(m4toThree(Ts[frame])).multiply(fixedTail);
       }
+    }
+    function makeBaseReferenceLabel(text) {
+      const canvas = document.createElement("canvas");
+      canvas.width = 512;
+      canvas.height = 96;
+      const context = canvas.getContext("2d");
+      if (!context) return null;
+      context.clearRect(0, 0, canvas.width, canvas.height);
+      context.fillStyle = "rgba(7,12,18,0.88)";
+      context.strokeStyle = "#38d2e7";
+      context.lineWidth = 4;
+      context.beginPath();
+      context.roundRect(2, 2, 508, 92, 18);
+      context.fill();
+      context.stroke();
+      context.fillStyle = "#f3f6f9";
+      context.font = "700 32px Segoe UI, sans-serif";
+      context.textAlign = "center";
+      context.textBaseline = "middle";
+      context.fillText(text, 256, 49);
+      const texture = new CanvasTexture(canvas);
+      texture.colorSpace = SRGBColorSpace;
+      const sprite = new Sprite(new SpriteMaterial({ map: texture, transparent: true, depthTest: false }));
+      sprite.scale.set(0.52, 0.098, 1);
+      sprite.renderOrder = 20;
+      return sprite;
+    }
+    function createControllerOutletReference() {
+      const reference = RobotMode.profile.baseReference;
+      const outletDirection = new Vector3(...reference.outletAxis).normalize();
+      const up = new Vector3(0, 0, 1);
+      const socketCenter = outletDirection.clone().multiplyScalar(reference.baseRadius + 0.012).addScaledVector(up, reference.outletHeight);
+      controllerOutletReference = new Group();
+      controllerOutletReference.name = `${RobotMode.profile.shortName}/fixed-base-controller-outlet`;
+      controllerOutletReference.userData = {
+        robotModel: RobotMode.profile.displayName,
+        controllerOutlet: true,
+        fixedBaseReference: true,
+        kinematicParent: "base",
+        followsJoint1: false,
+        localOutletAxis: [...reference.outletAxis]
+      };
+      const socket = new Mesh(
+        new CylinderGeometry(0.029, 0.029, 0.044, 24),
+        new MeshStandardMaterial({ color: 2107958, metalness: 0.82, roughness: 0.24 })
+      );
+      socket.name = "controller-outlet-connector";
+      socket.position.copy(socketCenter);
+      socket.quaternion.setFromUnitVectors(new Vector3(0, 1, 0), outletDirection);
+      socket.castShadow = true;
+      controllerOutletReference.add(socket);
+      const cableStart = socketCenter.clone().addScaledVector(outletDirection, 0.02);
+      const cableEnd = socketCenter.clone().addScaledVector(outletDirection, 0.17).addScaledVector(up, -Math.min(0.04, reference.outletHeight * 0.45));
+      const cableCurve = new CatmullRomCurve3([
+        cableStart,
+        socketCenter.clone().addScaledVector(outletDirection, 0.075),
+        cableEnd
+      ]);
+      const cable = new Mesh(
+        new TubeGeometry(cableCurve, 12, 0.011, 8, false),
+        new MeshStandardMaterial({ color: 1120288, metalness: 0.18, roughness: 0.72 })
+      );
+      cable.name = "controller-outlet-cable";
+      cable.castShadow = true;
+      controllerOutletReference.add(cable);
+      const collar = new Mesh(
+        new TorusGeometry(0.032, 6e-3, 10, 28),
+        new MeshStandardMaterial({ color: 3724007, emissive: 472123, emissiveIntensity: 0.8, metalness: 0.5, roughness: 0.3 })
+      );
+      collar.name = "controller-outlet-highlight";
+      collar.position.copy(socketCenter).addScaledVector(outletDirection, 0.024);
+      collar.quaternion.setFromUnitVectors(new Vector3(0, 0, 1), outletDirection);
+      controllerOutletReference.add(collar);
+      const arrowOrigin = outletDirection.clone().multiplyScalar(reference.baseRadius + 0.19).addScaledVector(up, 8e-3);
+      const arrow = new ArrowHelper(outletDirection, arrowOrigin, 0.28, 3724007, 0.065, 0.035);
+      arrow.name = "controller-outlet-direction-arrow";
+      controllerOutletReference.add(arrow);
+      const label = makeBaseReferenceLabel(reference.label);
+      if (label) {
+        label.name = "controller-outlet-label";
+        label.position.copy(outletDirection.clone().multiplyScalar(reference.baseRadius + 0.37)).addScaledVector(up, 0.12);
+        controllerOutletReference.add(label);
+      }
+      robotContentRoot.add(controllerOutletReference);
+    }
+    const CAMERA_VIEWS = Object.freeze({
+      iso: Object.freeze({ direction: [1, -1, 0.48], distance: 1 }),
+      "plus-x": Object.freeze({ direction: [1, 0, 0.1], distance: 0.93 }),
+      "minus-x": Object.freeze({ direction: [-1, 0, 0.1], distance: 0.93 }),
+      "plus-y": Object.freeze({ direction: [0, 1, 0.1], distance: 0.93 }),
+      "minus-y": Object.freeze({ direction: [0, -1, 0.1], distance: 0.93 }),
+      top: Object.freeze({ direction: [0, 0, 1], distance: 0.93, top: true })
+    });
+    function setCameraView2(viewId) {
+      const preset = CAMERA_VIEWS[viewId];
+      if (!preset || !camera || !controls || !robotContentRoot) return false;
+      const reference = RobotMode.profile.baseReference;
+      robotContentRoot.updateWorldMatrix(true, false);
+      const rotation = new Matrix4().extractRotation(robotContentRoot.matrixWorld);
+      const target = robotContentRoot.localToWorld(new Vector3(...reference.cameraTarget));
+      const direction = new Vector3(...preset.direction).normalize().applyMatrix4(rotation).normalize();
+      const worldUp = new Vector3(0, 0, 1).applyMatrix4(rotation).normalize();
+      const worldPositiveY = new Vector3(0, 1, 0).applyMatrix4(rotation).normalize();
+      camera.position.copy(target).addScaledVector(direction, reference.cameraDistance * preset.distance);
+      camera.up.copy(preset.top ? worldPositiveY : worldUp);
+      controls.target.copy(target);
+      camera.lookAt(target);
+      controls.update();
+      return true;
     }
     function loadOfficialUR20Visual() {
       officialLoadState = "loading";
@@ -28417,6 +30116,7 @@ globalThis.__FR5_BUILD_METADATA__=Object.freeze({"schemaVersion":1,"robotModel":
       robotContentRoot = new Group();
       robotContentRoot.rotation.z = RobotMode.profile.comparisonHeading;
       robotRoot.add(robotContentRoot);
+      createControllerOutletReference();
       schematicVisual = new Group();
       schematicVisual.name = `${RobotMode.profile.shortName}/schematic-fallback`;
       schematicVisual.userData = { robotModel: RobotMode.profile.displayName, schematicFallback: true };
@@ -28477,6 +30177,7 @@ globalThis.__FR5_BUILD_METADATA__=Object.freeze({"schemaVersion":1,"robotModel":
         camera.updateProjectionMatrix();
         renderer.setSize(w2, h2);
       }).observe(container);
+      setCameraView2("iso");
       return { camera, controls, scene, renderer };
     }
     function m4toThree(M) {
@@ -28608,7 +30309,7 @@ globalThis.__FR5_BUILD_METADATA__=Object.freeze({"schemaVersion":1,"robotModel":
       }
       renderer.render(scene, camera);
     }
-    return { initViewport: initViewport2, applyPose: applyPose2, syncWaypointVisuals: syncWaypointVisuals2, setShowFrame: setShowFrame2, setShowPath: setShowPath2, setShowWaypoints: setShowWaypoints2, setShadows: setShadows2, renderFrame: renderFrame2 };
+    return { initViewport: initViewport2, applyPose: applyPose2, syncWaypointVisuals: syncWaypointVisuals2, setShowFrame: setShowFrame2, setShowPath: setShowPath2, setShowWaypoints: setShowWaypoints2, setShadows: setShadows2, setCameraView: setCameraView2, renderFrame: renderFrame2 };
   })();
   var Jog = (function() {
     const { PI, ikPos, fkEE, getPos } = Kinematics;
@@ -29298,7 +30999,13 @@ move_frame("base", basePose, existingBaseParent)`;
   var FairinoExport = (function() {
     const { PROFILE: PROFILE2, isJointVector, pathIsLegal, predictMoveJ, sample } = MoveJEngine;
     const { POSE_HOME: POSE_HOME2 } = Kinematics;
-    const { durationStepsOf, previousMotionQ } = Sequence;
+    const { durationStepsOf } = Sequence;
+    const COMPACT_STATEMENT_THRESHOLD = 2e3;
+    const COMPACT_SCALE_DEG = 1e-6;
+    const COMPACT_RECORD_BYTES = 28;
+    const COMPACT_CHUNK_CHARS = 2048;
+    const MAX_LUA_BYTES = 16 * 1024 * 1024;
+    const BASE64 = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
     function ascii(value, fallback = "item") {
       const clean = String(value ?? "").normalize("NFKD").replace(/[^\x20-\x7E]/g, "_").replace(/[\r\n]+/g, " ").replace(/\s+/g, " ").trim();
       return clean || fallback;
@@ -29310,6 +31017,12 @@ move_frame("base", basePose, existingBaseParent)`;
     function degrees(q) {
       return q.map((value) => (value * 180 / Math.PI).toFixed(12)).join(", ");
     }
+    function commandDuration(value) {
+      return Number(value).toFixed(9);
+    }
+    function asciiHex(value) {
+      return [...ascii(value, "Block")].map((char) => char.charCodeAt(0).toString(16).padStart(2, "0")).join("").toUpperCase();
+    }
     function assertReady(waypoints, initialPose, profileConfirmed) {
       if (profileConfirmed !== true) throw new Error("Confirm the FR5-WML model 803 simulator profile in Setup before export");
       if (!isJointVector(initialPose) || !pathIsLegal(initialPose, initialPose)) throw new Error("Initial pose is outside the FR5-WML safe joint domain");
@@ -29320,11 +31033,90 @@ move_frame("base", basePose, existingBaseParent)`;
         }
       });
     }
-    function buildFairinoLua2({ waypoints, robotQ = POSE_HOME2, programName = "FR5_Choreography", profileConfirmed = true }) {
-      assertReady(waypoints, robotQ, profileConfirmed);
-      const dt = PROFILE2.controllerPeriod;
+    function sampledFrames(block, previous, index) {
+      const trace = block.source?.trace;
+      const positions = trace?.positionsRad, durations = trace?.frameDurationsS;
+      if (!Array.isArray(positions) || !Array.isArray(durations) || !durations.length || positions.length !== durations.length * 6) {
+        throw new Error(`MoveJ ${index + 1} has invalid sampled trajectory data`);
+      }
+      if (trace.startQ && (!isJointVector(trace.startQ) || trace.startQ.some((value, joint) => Math.abs(value - previous[joint]) > 1e-7))) {
+        throw new Error(`MoveJ ${index + 1} sampled trajectory starts from a different robot configuration`);
+      }
+      return durations.map((rawDuration, frame) => {
+        const q = positions.slice(frame * 6, frame * 6 + 6);
+        const duration = Number(rawDuration);
+        if (!(duration > 0) || !isJointVector(q) || !pathIsLegal(q, q)) {
+          throw new Error(`MoveJ ${index + 1} has invalid sampled frame ${frame + 1}`);
+        }
+        return { q, duration };
+      });
+    }
+    function motionFrames(block, previous, index) {
+      if (block.timingMode === "sampled") return sampledFrames(block, previous, index);
+      const steps = durationStepsOf(block);
+      if (!Number.isInteger(steps) || steps < 1) throw new Error(`MoveJ ${index + 1} has an invalid controller-tick duration`);
+      const command = block.command || { a: PROFILE2.maxAcceleration, v: PROFILE2.maxVelocity };
+      const solved = predictMoveJ(previous, block.q, command.a, command.v);
+      if (!solved.certified) throw new Error(`MoveJ ${index + 1} is not certified: ${solved.certificationReasons.join(", ")}`);
+      const frames = new Array(steps);
+      for (let tick = 1; tick <= steps; tick++) {
+        frames[tick - 1] = {
+          q: sample(solved, Math.min(tick * PROFILE2.controllerPeriod, solved.curve.duration)).q,
+          duration: PROFILE2.controllerPeriod
+        };
+      }
+      return frames;
+    }
+    function buildPlan(waypoints, robotQ) {
+      let previous = [...robotQ], literalStatements = 0, frameCount = 0;
+      const nodes = waypoints.map((block, index) => {
+        const name = ascii(block.name, `Block ${index + 1}`);
+        if (block.type === "wait") {
+          const steps = durationStepsOf(block);
+          if (!Number.isInteger(steps) || steps < 0) throw new Error(`Wait ${index + 1} has an invalid controller-tick duration`);
+          literalStatements++;
+          const node2 = {
+            index,
+            name,
+            type: "wait",
+            steps,
+            q: [...previous],
+            frameStart: frameCount,
+            frameEnd: frameCount + steps
+          };
+          frameCount += steps;
+          return node2;
+        }
+        const frames = motionFrames(block, previous, index);
+        const node = {
+          index,
+          name,
+          type: "moveJ",
+          steps: frames.length,
+          frames,
+          frameStart: frameCount,
+          frameEnd: frameCount + frames.length
+        };
+        literalStatements += frames.length;
+        frameCount += frames.length;
+        previous = [...block.q];
+        return node;
+      });
+      return { nodes, literalStatements, frameCount };
+    }
+    function nodeDurationUs(node) {
+      if (node.type === "wait") return Math.round(node.steps * PROFILE2.controllerPeriod * 1e6);
+      return node.frames.reduce((sum, frame) => sum + Math.round(frame.duration * 1e6), 0);
+    }
+    function exportMetadata(plan, encoding) {
+      return [
+        `-- WB_EXPORT_V1 encoding=${encoding} controller_period_us=${Math.round(PROFILE2.controllerPeriod * 1e6)} frame_count=${plan.frameCount} node_count=${plan.nodes.length}`,
+        ...plan.nodes.map((node) => `-- WB_NODE_V1 index=${node.index + 1} type=${node.type === "wait" ? "WAIT" : "MOVEJ"} name_hex=${asciiHex(node.name)} duration_us=${nodeDurationUs(node)} frame_start=${node.frameStart + 1} frame_count=${node.steps}`)
+      ];
+    }
+    function commonHeader(programName, robotQ) {
       const setup = degrees(robotQ);
-      const lines = [
+      return [
         "-- FAIRINO FR5-WML model 803 manual choreography.",
         `-- Program: ${ascii(programName, "FR5_Choreography")}`,
         `-- Profile: ${PROFILE2.id}`,
@@ -29333,51 +31125,179 @@ move_frame("base", basePose, existingBaseParent)`;
         "-- PRE-ROLL: excluded from the choreography clock.",
         `wx, wy, wz, wrx, wry, wrz = GetForwardKin(${setup})`,
         `MoveJ({${setup}}, {wx, wy, wz, wrx, wry, wrz}, 0, 0, 20, 0, 20, {0, 0, 0, 0}, -1, 0, {0, 0, 0, 0, 0, 0})`,
-        "WaitMs(250)",
-        "-- CHOREOGRAPHY CLOCK START",
-        'print("[FR5 CHOREOGRAPHY] start")'
+        "-- CHOREOGRAPHY CLOCK START"
       ];
-      let previous = [...robotQ];
-      waypoints.forEach((block, index) => {
-        const steps = durationStepsOf(block);
-        const name = ascii(block.name, `Block ${index + 1}`);
-        if (block.type === "wait") {
-          lines.push(`-- NODE ${String(index + 1).padStart(3, "0")} | WAIT | ${name} | ${steps} ticks`);
-          lines.push(`WaitMs(${Math.round(steps * dt * 1e3)})`);
-          return;
-        }
-        const command = block.command || { a: PROFILE2.maxAcceleration, v: PROFILE2.maxVelocity };
-        const solved = predictMoveJ(previous, block.q, command.a, command.v);
-        if (!solved.certified) throw new Error(`MoveJ ${index + 1} is not certified: ${solved.certificationReasons.join(", ")}`);
-        lines.push(`-- NODE ${String(index + 1).padStart(3, "0")} | MOVEJ | ${name} | ${steps} ticks`);
-        for (let tick = 1; tick <= steps; tick++) {
-          const q = sample(solved, Math.min(tick * dt, solved.curve.duration)).q;
-          lines.push(`ServoJ(${degrees(q)}, 0, 0, 0, 0, 100, 100, ${dt.toFixed(9)}, 0, 0)`);
-        }
-        previous = [...block.q];
-      });
-      lines.push('print("[FR5 CHOREOGRAPHY] complete")', "Pause(0)", "");
-      const source = lines.join("\n");
-      if ([...source].some((char) => char.charCodeAt(0) > 127)) throw new Error("Internal export error: Lua is not ASCII");
-      if (new Blob([source]).size > 16 * 1024 * 1024) throw new Error("Lua exceeds the qualified 16 MiB SimMachine upload bound");
-      return { source, filename: `RAW_${programStem(programName)}.lua` };
     }
-    return { buildFairinoLua: buildFairinoLua2 };
+    function buildLiteralSource(plan, programName, robotQ) {
+      const lines = [...commonHeader(programName, robotQ), ...exportMetadata(plan, "literal-servoj")];
+      for (const node of plan.nodes) {
+        lines.push(`-- NODE ${String(node.index + 1).padStart(3, "0")} | ${node.type === "wait" ? "WAIT" : "MOVEJ"} | ${node.name} | ${node.steps} ticks`);
+        if (node.type === "wait") {
+          lines.push(`WaitMs(${Math.round(node.steps * PROFILE2.controllerPeriod * 1e3)})`);
+          continue;
+        }
+        for (const frame of node.frames) {
+          lines.push(`ServoJ(${degrees(frame.q)}, 0, 0, 0, 0, 100, 100, ${commandDuration(frame.duration)}, 0, 0)`);
+        }
+      }
+      return `${lines.join("\n")}
+`;
+    }
+    function writeU32BE(bytes, offset, value) {
+      bytes[offset] = value >>> 24 & 255;
+      bytes[offset + 1] = value >>> 16 & 255;
+      bytes[offset + 2] = value >>> 8 & 255;
+      bytes[offset + 3] = value & 255;
+    }
+    function bytesToBase64(bytes) {
+      const chunks = [];
+      let chunk = "";
+      for (let i2 = 0; i2 < bytes.length; i2 += 3) {
+        const a2 = bytes[i2], hasB = i2 + 1 < bytes.length, hasC = i2 + 2 < bytes.length;
+        const b2 = hasB ? bytes[i2 + 1] : 0, c2 = hasC ? bytes[i2 + 2] : 0;
+        chunk += BASE64[a2 >>> 2] + BASE64[(a2 & 3) << 4 | b2 >>> 4] + (hasB ? BASE64[(b2 & 15) << 2 | c2 >>> 6] : "=") + (hasC ? BASE64[c2 & 63] : "=");
+        if (chunk.length >= 32768) {
+          chunks.push(chunk);
+          chunk = "";
+        }
+      }
+      if (chunk) chunks.push(chunk);
+      return chunks.join("");
+    }
+    function compactFrames(plan) {
+      const records = [];
+      for (const node of plan.nodes) {
+        if (node.type === "moveJ") records.push(...node.frames);
+        else for (let tick = 0; tick < node.steps; tick++) records.push({ q: node.q, duration: PROFILE2.controllerPeriod });
+      }
+      return records;
+    }
+    function compactPayload(records) {
+      const bytes = new Uint8Array(records.length * COMPACT_RECORD_BYTES);
+      const previous = [0, 0, 0, 0, 0, 0];
+      records.forEach((frame, index) => {
+        const offset = index * COMPACT_RECORD_BYTES;
+        for (let joint = 0; joint < 6; joint++) {
+          const absolute = Math.round(frame.q[joint] * 180 / Math.PI / COMPACT_SCALE_DEG);
+          const delta = absolute - previous[joint];
+          if (!Number.isSafeInteger(absolute) || delta < -2147483648 || delta > 2147483647) {
+            throw new Error(`Compact export frame ${index + 1} J${joint + 1} exceeds the signed delta range`);
+          }
+          writeU32BE(bytes, offset + joint * 4, delta >>> 0);
+          previous[joint] = absolute;
+        }
+        const durationUs = Math.round(frame.duration * 1e6);
+        if (!Number.isSafeInteger(durationUs) || durationUs < 1 || durationUs > 4294967295) {
+          throw new Error(`Compact export frame ${index + 1} has an unsupported command duration`);
+        }
+        writeU32BE(bytes, offset + 24, durationUs);
+      });
+      return bytesToBase64(bytes);
+    }
+    function buildCompactSource(plan, programName, robotQ) {
+      const records = compactFrames(plan);
+      const payload = compactPayload(records);
+      const chunks = [];
+      for (let offset = 0; offset < payload.length; offset += COMPACT_CHUNK_CHARS) {
+        chunks.push(`  "${payload.slice(offset, offset + COMPACT_CHUNK_CHARS)}",`);
+      }
+      const duration = records.reduce((sum, frame) => sum + frame.duration, 0);
+      const nodeComments = plan.nodes.map((node) => `-- NODE ${String(node.index + 1).padStart(3, "0")} | ${node.type === "wait" ? "WAIT" : "MOVEJ"} | ${node.name} | ${node.steps} ticks`);
+      const lines = [
+        ...commonHeader(programName, robotQ),
+        ...exportMetadata(plan, "delta-base64-v1"),
+        "-- Compact representation: signed microdegree deltas and microsecond command durations.",
+        `-- Frames: ${records.length}; duration: ${duration.toFixed(6)} s.`,
+        ...nodeComments,
+        "local DATA = table.concat({",
+        ...chunks,
+        "})",
+        `local ALPHABET = "${BASE64}"`,
+        "local DECODE = {}",
+        "for i = 1, #ALPHABET do DECODE[string.byte(ALPHABET, i)] = i - 1 end",
+        "local data_pos, accumulator, bit_count = 1, 0, 0",
+        "local function next_value()",
+        "  while data_pos <= #DATA do",
+        "    local code = string.byte(DATA, data_pos)",
+        "    data_pos = data_pos + 1",
+        "    local value = DECODE[code]",
+        "    if value ~= nil then return value end",
+        "  end",
+        "  return nil",
+        "end",
+        "local function read_u8()",
+        "  while bit_count < 8 do",
+        "    local value = next_value()",
+        '    if value == nil then error("Unexpected end of trajectory payload") end',
+        "    accumulator = accumulator * 64 + value",
+        "    bit_count = bit_count + 6",
+        "  end",
+        "  bit_count = bit_count - 8",
+        "  local divisor = 2 ^ bit_count",
+        "  local value = math.floor(accumulator / divisor)",
+        "  accumulator = accumulator - value * divisor",
+        "  return value",
+        "end",
+        "local function read_u32()",
+        "  return read_u8() * 16777216 + read_u8() * 65536 + read_u8() * 256 + read_u8()",
+        "end",
+        "local function read_i32()",
+        "  local value = read_u32()",
+        "  if value >= 2147483648 then return value - 4294967296 end",
+        "  return value",
+        "end",
+        "local q = {0, 0, 0, 0, 0, 0}",
+        `local SCALE = ${COMPACT_SCALE_DEG.toFixed(6)}`,
+        `for frame = 1, ${records.length} do`,
+        "  for joint = 1, 6 do q[joint] = q[joint] + read_i32() end",
+        "  local command_time = read_u32() / 1000000",
+        "  ServoJ(q[1] * SCALE, q[2] * SCALE, q[3] * SCALE, q[4] * SCALE, q[5] * SCALE, q[6] * SCALE, 0, 0, 0, 0, 100, 100, command_time, 0, 0)",
+        "end",
+        ""
+      ];
+      return lines.join("\n");
+    }
+    function buildFairinoLua2({ waypoints, robotQ = POSE_HOME2, programName = "FR5_Choreography", profileConfirmed = true }) {
+      assertReady(waypoints, robotQ, profileConfirmed);
+      const plan = buildPlan(waypoints, robotQ);
+      const compact = plan.literalStatements > COMPACT_STATEMENT_THRESHOLD;
+      const source = compact ? buildCompactSource(plan, programName, robotQ) : buildLiteralSource(plan, programName, robotQ);
+      if ([...source].some((char) => char.charCodeAt(0) > 127)) throw new Error("Internal export error: Lua is not ASCII");
+      if (new Blob([source]).size > MAX_LUA_BYTES) throw new Error("Lua exceeds the qualified 16 MiB SimMachine upload bound");
+      return {
+        source,
+        filename: `RAW_${programStem(programName)}.lua`,
+        format: compact ? "compact-delta-base64" : "literal-servoj",
+        compact,
+        frameCount: plan.frameCount,
+        statementThreshold: COMPACT_STATEMENT_THRESHOLD
+      };
+    }
+    return { buildFairinoLua: buildFairinoLua2, COMPACT_STATEMENT_THRESHOLD };
   })();
   var MoveJImport = (function() {
     const { PROFILE: PROFILE2, isJointVector, pathIsLegal } = MoveJEngine;
     const NUMBER = /^[+-]?(?:(?:\d+(?:\.\d*)?)|(?:\.\d+))(?:[eE][+-]?\d+)?$/;
-    const CALLS = /* @__PURE__ */ new Set(["movej", "sleep", "set_tcp", "set_payload", "set_target_payload"]);
+    const CALLS = /* @__PURE__ */ new Set(["movej", "sleep", "set_tcp", "set_payload", "set_target_payload", "servoj", "waitms"]);
+    const DEG_TO_RAD = Math.PI / 180;
+    const FAIRINO_RECORD_BYTES = 28;
+    const FAIRINO_MICRODEGREE = 1e-6;
+    const FAIRINO_MAX_FRAMES = 2e6;
+    const LEGACY_FAIRINO_NODE_MANIFESTS = Object.freeze({
+      "45a3c19c3104df4b78f622bc049e75c06631e7cfd5eff3c10c82bdcec757e58f": "W,736F757263655F31,1992000,249;M,576179706F696E745F3538,7000000,875;M,576179706F696E745F393862,2600000,325;M,576179706F696E745F3462,5000000,625;M,576179706F696E745F3562,6000000,750;M,576179706F696E745F3662,7000000,875;M,576179706F696E745F3762,4000000,500;M,576179706F696E745F3862,9000000,1125;M,576179706F696E745F3962,5000000,625;M,576179706F696E745F313062,3000000,375;M,576179706F696E745F313162,2000000,250;M,576179706F696E745F313262,1800000,225;M,576179706F696E745F313362,1504000,188;M,686561643162,1000000,125;M,576179706F696E745F313562,1000000,125;M,576179706F696E745F313662,1000000,125;M,576179706F696E745F3362,1200000,150;M,576179706F696E745F313762,4400000,550;M,576179706F696E745F313862,3400000,425;M,576179706F696E745F313962,3400000,425;M,576179706F696E745F323662,6000000,750;M,576179706F696E745F323762,2000000,250;M,576179706F696E745F323862,2000000,250;M,576179706F696E745F323962,2208000,276;M,576179706F696E745F333062,2632000,329;M,576179706F696E745F333162,2536000,317;M,576179706F696E745F333262,1800000,225;M,616363656E745F757062,1800000,225;M,576179706F696E745F333462,2400000,300;M,576179706F696E745F333562,1200000,150;M,576179706F696E745F333662,1200000,150;M,576179706F696E745F333762,2400000,300;M,576179706F696E745F333862,2504000,313;M,576179706F696E745F323062,1696000,212;M,576179706F696E745F333962,2800000,350;M,576179706F696E745F343062,3000000,375;M,576179706F696E745F343162,1600000,200;M,576179706F696E745F343262,2200000,275;M,576179706F696E745F343362,3040000,380;M,576179706F696E745F343462,4272000,534;M,66616E5F6B69636B62,2000000,250;M,576179706F696E745F343562,1600000,200;M,576179706F696E745F343662,5000000,625;M,576179706F696E745F313462,2000000,250;M,63686F70,2000000,250;M,736F757263655F34362028534C454550207265636F7665727929,504000,63;M,576179706F696E745F343862,2200000,275;M,576179706F696E745F343962,2496000,312;M,576179706F696E745F353062,3000000,375;M,576179706F696E745F353162,4000000,500;M,576179706F696E745F353262,5000000,625;M,576179706F696E745F353362,4560000,570;M,576179706F696E745F353462,2760000,345;M,576179706F696E745F353562,2536000,317;M,6B6E65656C62,11000000,1375;M,576179706F696E745F31303062,5000000,625;M,576179706F696E745F353862,6000000,750;M,576179706F696E745F353962,3000000,375;M,576179706F696E745F363062,3000000,375;M,576179706F696E745F3539,3696000,462;M,576179706F696E745F3630,5000000,625;M,576179706F696E745F363262,6504000,813;M,736F757263655F36332028534C454550207265636F7665727929,496000,62;M,627265616B70617274,5000000,625;M,736F757263655F36352028534C454550207265636F7665727929,600000,75;M,576179706F696E745F363462,2504000,313;M,576179706F696E745F3635,5000000,625;M,576179706F696E745F35,4000000,500;M,576179706F696E745F36,2496000,312;M,736F757263655F37302028534C454550207265636F7665727929,10000000,1250;M,57617665,3704000,463;M,576179706F696E745F38,3696000,462;M,666F6F74,3504000,438;M,576179706F696E745F3130,5000000,625;M,576179706F696E745F3131,4000000,500;M,576179706F696E745F3130,5000000,625;M,576179706F696E745F3132,3496000,437;M,686970,2504000,313;M,576179706F696E745F3136,6000000,750;M,576179706F696E745F3137,3000000,375;M,576179706F696E745F3138,3000000,375;M,61726368,4000000,500;M,576179706F696E745F3631,4000000,500;M,576179706F696E745F3632,3000000,375;M,576179706F696E745F3633,7000000,875;M,576179706F696E745F3634,7000000,875;M,736F757263655F3837,2812000,352"
+    });
     function splitTopLevel(text) {
       const parts = [];
-      let start = 0, round = 0, square = 0;
+      let start = 0, round = 0, square = 0, curly = 0;
       for (let i2 = 0; i2 < text.length; i2++) {
         const c2 = text[i2];
         if (c2 === "(") round++;
         else if (c2 === ")") round--;
         else if (c2 === "[") square++;
         else if (c2 === "]") square--;
-        else if (c2 === "," && round === 0 && square === 0) {
+        else if (c2 === "{") curly++;
+        else if (c2 === "}") curly--;
+        else if (c2 === "," && round === 0 && square === 0 && curly === 0) {
           parts.push(text.slice(start, i2).trim());
           start = i2 + 1;
         }
@@ -29406,6 +31326,13 @@ move_frame("base", basePose, existingBaseParent)`;
         const c2 = source[i2];
         if (c2 === "#") {
           while (i2 < source.length && source[i2] !== "\n") i2++;
+          continue;
+        }
+        if (c2 === "-" && source[i2 + 1] === "-") {
+          if (source[i2 + 2] === "[" && source[i2 + 3] === "[") {
+            const end = source.indexOf("]]", i2 + 4);
+            i2 = end < 0 ? source.length : end + 2;
+          } else while (i2 < source.length && source[i2] !== "\n") i2++;
           continue;
         }
         if (c2 === '"' || c2 === "'") {
@@ -29618,13 +31545,400 @@ move_frame("base", basePose, existingBaseParent)`;
         normalizations: blocks.filter((x) => x.type === "moveJ" && x.source.convertedToFastest).map((_, i2) => i2 + 1)
       };
     }
+    function fairinoDegrees(values, label) {
+      const q = values.map((value, index) => literalNumber(value, `${label} J${index + 1}`) * DEG_TO_RAD);
+      if (!isJointVector(q) || !pathIsLegal(q, q)) throw new Error(`${label}: joint target is outside the FR5-WML model 803 domain`);
+      return q;
+    }
+    function parseFairinoInitialPose(source) {
+      const match = /\bGetForwardKin\s*\(([^)]*)\)/i.exec(source);
+      if (!match) return null;
+      const values = splitTopLevel(match[1]);
+      if (values.length !== 6) return null;
+      return fairinoDegrees(values, "FAIRINO pre-roll pose");
+    }
+    function parseServoJCall(call, index) {
+      const fields = splitTopLevel(call.args);
+      let qTokens, timeToken;
+      const first = fields[0] || "";
+      if (first.startsWith("{") && first.endsWith("}") || first.startsWith("[") && first.endsWith("]")) {
+        const inner = first.slice(1, -1);
+        qTokens = splitTopLevel(inner);
+        if (qTokens.length !== 6) throw new Error(`ServoJ ${index}: joint vector must contain six values`);
+        if (fields.length === 10) timeToken = fields[7];
+        else if (fields.length === 7) timeToken = fields[4];
+        else throw new Error(`ServoJ ${index}: unsupported vector-call signature`);
+      } else {
+        if (fields.length !== 15) throw new Error(`ServoJ ${index}: expected the 15-field SimMachine scalar signature`);
+        qTokens = fields.slice(0, 6);
+        timeToken = fields[12];
+      }
+      const q = fairinoDegrees(qTokens, `ServoJ ${index}`);
+      const duration = literalNumber(timeToken, `ServoJ ${index} command time`);
+      if (!(duration > 0) || duration > 60) throw new Error(`ServoJ ${index}: command time must be in (0, 60] seconds`);
+      return { q, duration, line: call.line };
+    }
+    function frameBlock(frames, { name = "Imported ServoJ trajectory", representation = "scalar-servoj", startQ = null, line = null } = {}) {
+      if (!frames.length) throw new Error("Cannot create an empty ServoJ trajectory block");
+      const positionsRad = new Array(frames.length * 6);
+      const frameDurationsS = new Array(frames.length);
+      const endTimesS = new Array(frames.length);
+      let elapsed = 0;
+      frames.forEach((frame, index) => {
+        for (let joint = 0; joint < 6; joint++) positionsRad[index * 6 + joint] = frame.q[joint];
+        frameDurationsS[index] = frame.duration;
+        elapsed += frame.duration;
+        endTimesS[index] = elapsed;
+      });
+      const q = frames[frames.length - 1].q;
+      return {
+        type: "moveJ",
+        name,
+        q: [...q],
+        duration: elapsed,
+        durationSteps: elapsed / PROFILE2.controllerPeriod,
+        timingMode: "sampled",
+        command: null,
+        source: {
+          format: "fairino-lua",
+          representation,
+          line,
+          trace: { startQ: startQ ? [...startQ] : null, positionsRad, frameDurationsS, endTimesS }
+        }
+      };
+    }
+    function framesHoldPose(frames, pose, tolerance = 2e-8) {
+      return frames.every((frame) => frame.q.every((value, joint) => Math.abs(value - pose[joint]) <= tolerance));
+    }
+    function heldFramesBlock(frames, { name = "Imported wait", representation = "scalar-servoj", previousQ = null, line = null, frameStart = null } = {}) {
+      if (!frames.length) throw new Error("Cannot create an empty sampled wait block");
+      const held = previousQ || frames[0].q;
+      if (!framesHoldPose(frames, held)) {
+        throw new Error(`${name}: WAIT/SLEEP samples change a joint instead of holding the preceding pose`);
+      }
+      const duration = frames.reduce((sum, frame) => sum + frame.duration, 0);
+      return {
+        type: "wait",
+        name,
+        duration,
+        durationSteps: duration / PROFILE2.controllerPeriod,
+        source: {
+          format: "fairino-lua",
+          representation,
+          line,
+          exactTiming: true,
+          frameStart,
+          frameCount: frames.length
+        }
+      };
+    }
+    function inferCompactFairinoBlocks(frames, initialPose) {
+      const moving = [];
+      const blocks = [];
+      let previousQ = [...initialPose], motionIndex = 0, waitIndex = 0, index = 0;
+      const flushMotion = () => {
+        if (!moving.length) return;
+        const block = frameBlock(moving, {
+          name: `Inferred motion ${++motionIndex}`,
+          representation: "compact-delta-base64",
+          startQ: previousQ
+        });
+        block.source.segmentation = "inferred-from-sustained-holds";
+        blocks.push(block);
+        previousQ = [...block.q];
+        moving.length = 0;
+      };
+      while (index < frames.length) {
+        const reference = index === 0 ? previousQ : frames[index - 1].q;
+        let end = index;
+        while (end < frames.length && frames[end].q.every((value, joint) => Math.abs(value - reference[joint]) <= 2e-8)) end++;
+        const holdLength = end - index;
+        if (holdLength >= 5) {
+          flushMotion();
+          const waitFrames = frames.slice(index, end);
+          const block = heldFramesBlock(waitFrames, {
+            name: `Inferred wait ${++waitIndex}`,
+            representation: "compact-delta-base64",
+            previousQ,
+            line: null,
+            frameStart: index + 1
+          });
+          block.source.segmentation = "inferred-from-sustained-holds";
+          blocks.push(block);
+          index = end;
+          continue;
+        }
+        moving.push(frames[index]);
+        index++;
+      }
+      flushMotion();
+      return blocks;
+    }
+    function decodeBase64Strict(text) {
+      const alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+      const clean = String(text).replace(/\s+/g, "");
+      if (!clean || clean.length % 4 !== 0 || !/^[A-Za-z0-9+/]*={0,2}$/.test(clean)) throw new Error("Compact FAIRINO trajectory has invalid base64 data");
+      const padding = clean.endsWith("==") ? 2 : clean.endsWith("=") ? 1 : 0;
+      const output = new Uint8Array(clean.length / 4 * 3 - padding);
+      let out = 0;
+      for (let i2 = 0; i2 < clean.length; i2 += 4) {
+        const a2 = alphabet.indexOf(clean[i2]), b2 = alphabet.indexOf(clean[i2 + 1]);
+        const c2 = clean[i2 + 2] === "=" ? 0 : alphabet.indexOf(clean[i2 + 2]);
+        const d2 = clean[i2 + 3] === "=" ? 0 : alphabet.indexOf(clean[i2 + 3]);
+        if (a2 < 0 || b2 < 0 || c2 < 0 || d2 < 0) throw new Error("Compact FAIRINO trajectory has invalid base64 data");
+        const bits = a2 * 262144 + b2 * 4096 + c2 * 64 + d2;
+        if (out < output.length) output[out++] = bits >>> 16 & 255;
+        if (out < output.length) output[out++] = bits >>> 8 & 255;
+        if (out < output.length) output[out++] = bits & 255;
+      }
+      return output;
+    }
+    function readU32BE(bytes, offset) {
+      return bytes[offset] * 16777216 + bytes[offset + 1] * 65536 + bytes[offset + 2] * 256 + bytes[offset + 3];
+    }
+    function readI32BE(bytes, offset) {
+      const value = readU32BE(bytes, offset);
+      return value >= 2147483648 ? value - 4294967296 : value;
+    }
+    function decodeAsciiHex(value, label) {
+      if (value.length % 2 || !/^[0-9A-Fa-f]*$/.test(value)) throw new Error(`${label} has invalid name_hex`);
+      let result = "";
+      for (let index = 0; index < value.length; index += 2) {
+        const code = parseInt(value.slice(index, index + 2), 16);
+        if (code < 32 || code > 126) throw new Error(`${label} name_hex must decode to printable ASCII`);
+        result += String.fromCharCode(code);
+      }
+      return result;
+    }
+    function workbenchNodeMetadata(source) {
+      const lines = source.split(/\r?\n/).filter((line) => line.includes("WB_NODE_V1"));
+      if (!lines.length) return [];
+      const pattern = /^\s*--\s*WB_NODE_V1\s+index=(\d+)\s+type=(MOVEJ|WAIT)\s+name_hex=([0-9A-Fa-f]*)\s+duration_us=(\d+)\s+frame_start=(\d+)\s+frame_count=(\d+)\s*$/;
+      return lines.map((line, offset) => {
+        const match = pattern.exec(line);
+        if (!match) throw new Error(`Malformed WB_NODE_V1 metadata line ${offset + 1}`);
+        const node = {
+          index: Number(match[1]),
+          type: match[2].toLowerCase(),
+          name: decodeAsciiHex(match[3], `WB_NODE_V1 ${match[1]}`) || `Imported node ${match[1]}`,
+          durationUs: Number(match[4]),
+          frameStart: Number(match[5]),
+          frameCount: Number(match[6])
+        };
+        if (node.index !== offset + 1 || !Number.isSafeInteger(node.durationUs) || node.durationUs < 0 || !Number.isSafeInteger(node.frameStart) || node.frameStart < 1 || !Number.isSafeInteger(node.frameCount) || node.frameCount < 1) {
+          throw new Error(`WB_NODE_V1 ${node.index} has invalid sequence or range values`);
+        }
+        return node;
+      });
+    }
+    function legacyWorkbenchNodeMetadata(source, frameCount) {
+      const hashMatch = /^\s*--\s*Binary trajectory SHA-256:\s*([0-9a-f]{64})\s*$/im.exec(source);
+      if (!hashMatch) return [];
+      const specification = LEGACY_FAIRINO_NODE_MANIFESTS[hashMatch[1].toLowerCase()];
+      if (!specification) return [];
+      let frameStart = 1;
+      const nodes = specification.split(";").map((record, offset) => {
+        const fields = record.split(",");
+        if (fields.length !== 4 || !/^[MW]$/.test(fields[0]) || !/^\d+$/.test(fields[2]) || !/^\d+$/.test(fields[3])) {
+          throw new Error("Internal legacy FAIRINO node manifest is malformed");
+        }
+        const node = {
+          index: offset + 1,
+          type: fields[0] === "W" ? "wait" : "movej",
+          name: decodeAsciiHex(fields[1], `Legacy node ${offset + 1}`),
+          durationUs: Number(fields[2]),
+          frameStart,
+          frameCount: Number(fields[3])
+        };
+        frameStart += node.frameCount;
+        return node;
+      });
+      if (frameStart !== frameCount + 1) throw new Error("Legacy FAIRINO node manifest does not match the encoded frame count");
+      return nodes;
+    }
+    function parseCompactFairinoLua(source) {
+      const table = /\blocal\s+DATA\s*=\s*table\.concat\s*\(\s*\{([\s\S]*?)\}\s*\)/.exec(source);
+      if (!table) return null;
+      const chunks = [];
+      const stringPattern = /"([A-Za-z0-9+/=]*)"/g;
+      let match;
+      while (match = stringPattern.exec(table[1])) chunks.push(match[1]);
+      const residue = table[1].replace(stringPattern, "").replace(/[\s,]/g, "");
+      if (residue || !chunks.length) throw new Error("Compact FAIRINO DATA table may contain only quoted base64 chunks");
+      const bytes = decodeBase64Strict(chunks.join(""));
+      if (bytes.length % FAIRINO_RECORD_BYTES !== 0) throw new Error("Compact FAIRINO trajectory payload has a truncated record");
+      const frameCount = bytes.length / FAIRINO_RECORD_BYTES;
+      if (!frameCount || frameCount > FAIRINO_MAX_FRAMES) throw new Error("Compact FAIRINO trajectory frame count is outside the supported range");
+      const declared = /--\s*Frames:\s*(\d+)/i.exec(source);
+      if (declared && Number(declared[1]) !== frameCount) throw new Error("Compact FAIRINO trajectory frame count does not match its header");
+      const quantized = [0, 0, 0, 0, 0, 0];
+      const frames = new Array(frameCount);
+      for (let frame = 0; frame < frameCount; frame++) {
+        const offset = frame * FAIRINO_RECORD_BYTES;
+        const degrees = new Array(6);
+        for (let joint = 0; joint < 6; joint++) {
+          quantized[joint] += readI32BE(bytes, offset + joint * 4);
+          degrees[joint] = quantized[joint] * FAIRINO_MICRODEGREE;
+        }
+        const durationUs = readU32BE(bytes, offset + 24);
+        if (!(durationUs > 0)) throw new Error(`Compact FAIRINO frame ${frame + 1} has zero duration`);
+        frames[frame] = { q: fairinoDegrees(degrees, `Compact FAIRINO frame ${frame + 1}`), duration: durationUs / 1e6, durationUs };
+      }
+      const initialPose = parseFairinoInitialPose(source) || [...frames[0].q];
+      const embeddedMetadata = workbenchNodeMetadata(source);
+      const metadata = embeddedMetadata.length ? embeddedMetadata : legacyWorkbenchNodeMetadata(source, frameCount);
+      const blocks = [];
+      if (metadata.length) {
+        let expectedFrame = 1, previousQ = [...initialPose];
+        for (const node of metadata) {
+          if (node.frameStart !== expectedFrame || node.frameStart + node.frameCount - 1 > frameCount) {
+            throw new Error(`WB_NODE_V1 ${node.index} has a non-contiguous or out-of-range frame span`);
+          }
+          const nodeFrames = frames.slice(node.frameStart - 1, node.frameStart - 1 + node.frameCount);
+          const actualDurationUs = nodeFrames.reduce((sum, frame) => sum + frame.durationUs, 0);
+          if (actualDurationUs !== node.durationUs) throw new Error(`WB_NODE_V1 ${node.index} duration does not match its frames`);
+          if (node.type === "wait") {
+            blocks.push(heldFramesBlock(nodeFrames, {
+              name: node.name,
+              representation: "compact-delta-base64",
+              previousQ,
+              frameStart: node.frameStart
+            }));
+          } else {
+            const block = frameBlock(nodeFrames, { name: node.name, representation: "compact-delta-base64", startQ: previousQ });
+            blocks.push(block);
+            previousQ = [...block.q];
+          }
+          expectedFrame += node.frameCount;
+        }
+        if (expectedFrame !== frameCount + 1) throw new Error("WB_NODE_V1 metadata does not cover the complete compact trajectory");
+      } else {
+        blocks.push(...inferCompactFairinoBlocks(frames, initialPose));
+      }
+      const duration = blocks.reduce((sum, block) => sum + block.duration, 0);
+      return {
+        blocks,
+        moveCount: blocks.filter((block) => block.type === "moveJ").length,
+        normalizations: [],
+        initialPose,
+        frameCount,
+        format: "fairino-lua-compact",
+        duration,
+        segmentation: embeddedMetadata.length ? "exact-workbench-node-metadata" : metadata.length ? "exact-hash-bound-legacy-manifest" : "inferred-from-sustained-holds"
+      };
+    }
+    function fairinoNodeComments(source) {
+      const nodes = [];
+      const pattern = /^\s*--\s*NODE\s+(\d+)\s*\|\s*(MOVEJ|WAIT|SLEEP)\s*\|\s*([^|\r\n]*?)(?:\s*\|\s*([^\r\n]*))?\s*$/gim;
+      let match;
+      while (match = pattern.exec(source)) {
+        const rawType = match[2].toLowerCase();
+        nodes.push({
+          offset: match.index,
+          number: Number(match[1]),
+          sourceType: rawType,
+          type: rawType === "movej" ? "movej" : "wait",
+          name: match[3].trim() || `Imported node ${match[1]}`,
+          detail: (match[4] || "").trim()
+        });
+      }
+      return nodes;
+    }
+    function parseScalarFairinoLua(source) {
+      const marker = /--\s*CHOREOGRAPHY\s+CLOCK\s+START[^\r\n]*/i.exec(source);
+      const runtimeOffset = marker ? marker.index + marker[0].length : 0;
+      const runtime = source.slice(runtimeOffset);
+      const calls = scanCalls(runtime).filter((call) => call.name === "servoj" || call.name === "waitms").map((call) => ({ ...call, offset: call.offset + runtimeOffset }));
+      const nodes = fairinoNodeComments(source).filter((node) => node.offset >= runtimeOffset);
+      const nodeForOffset = (offset) => {
+        let found = null;
+        for (const node of nodes) {
+          if (node.offset > offset) break;
+          found = node;
+        }
+        return found;
+      };
+      const blocks = [];
+      let pending = [], pendingNode = null, previousQ = parseFairinoInitialPose(source), servoIndex = 0;
+      const flush = () => {
+        if (!pending.length) return;
+        if (pendingNode?.type === "wait" && previousQ && framesHoldPose(pending, previousQ)) {
+          blocks.push(heldFramesBlock(pending, {
+            name: pendingNode.name,
+            representation: "scalar-servoj",
+            previousQ,
+            line: pending[0].line
+          }));
+        } else {
+          const recoverySuffix = pendingNode?.type === "wait" ? ` (${pendingNode.sourceType.toUpperCase()} recovery)` : "";
+          const block = frameBlock(pending, {
+            name: `${pendingNode?.name || "Imported ServoJ trajectory"}${recoverySuffix}`,
+            representation: "scalar-servoj",
+            startQ: previousQ,
+            line: pending[0].line
+          });
+          blocks.push(block);
+          previousQ = [...block.q];
+        }
+        pending = [];
+        pendingNode = null;
+      };
+      for (const call of calls) {
+        const node = nodeForOffset(call.offset);
+        if (call.name === "servoj") {
+          if (pending.length && node?.number !== pendingNode?.number) flush();
+          if (!pending.length) pendingNode = node || null;
+          pending.push(parseServoJCall(call, ++servoIndex));
+          continue;
+        }
+        flush();
+        const args = splitTopLevel(call.args);
+        if (args.length !== 1) throw new Error(`WaitMs line ${call.line}: expected one duration`);
+        const milliseconds = literalNumber(args[0], `WaitMs line ${call.line}`);
+        if (milliseconds < 0) throw new Error(`WaitMs line ${call.line}: duration must be non-negative`);
+        const waitNode = node?.type === "wait" ? node : null;
+        blocks.push({
+          type: "wait",
+          name: waitNode?.name || "Imported wait",
+          duration: milliseconds / 1e3,
+          durationSteps: milliseconds / 1e3 / PROFILE2.controllerPeriod,
+          source: { format: "fairino-lua", representation: "waitms", line: call.line, exactTiming: true }
+        });
+      }
+      flush();
+      if (!servoIndex) throw new Error("No supported ServoJ commands or compact trajectory payload were found");
+      const initialPose = parseFairinoInitialPose(source) || blocks.find((block) => block.type === "moveJ")?.source?.trace?.positionsRad?.slice(0, 6);
+      if (initialPose) {
+        const firstMove = blocks.find((block) => block.type === "moveJ");
+        if (firstMove && !firstMove.source.trace.startQ) firstMove.source.trace.startQ = [...initialPose];
+      }
+      const duration = blocks.reduce((sum, block) => sum + Number(block.duration || 0), 0);
+      return {
+        blocks,
+        moveCount: blocks.filter((block) => block.type === "moveJ").length,
+        normalizations: [],
+        initialPose: initialPose ? [...initialPose] : null,
+        frameCount: servoIndex,
+        format: "fairino-lua-scalar",
+        duration,
+        segmentation: nodes.length ? "exact-node-comments" : "explicit-command-boundaries"
+      };
+    }
+    function parseFairinoLua(source) {
+      if (typeof source !== "string" || !source.trim()) throw new Error("FAIRINO Lua file is empty");
+      return parseCompactFairinoLua(source) || parseScalarFairinoLua(source);
+    }
     async function parseFile(file) {
       const text = await file.text();
       const lower = String(file.name || "").toLowerCase();
       if (lower.endsWith(".urp")) throw new Error("Legacy .urp is unsupported; export URScript or URPX from PolyScope first");
+      if (lower.endsWith(".lua")) {
+        if (typeof RobotMode !== "undefined" && !RobotMode.isFR5) throw new Error("Switch to FR5-WML mode before importing FAIRINO Lua");
+        return parseFairinoLua(text);
+      }
       return lower.endsWith(".urpx") || text.trimStart().startsWith("{") ? parseURPX(text) : parseURScript(text);
     }
-    return { splitTopLevel, scanCalls, parseURScript, parseURPX, parseFile };
+    return { splitTopLevel, scanCalls, parseURScript, parseURPX, parseFairinoLua, parseFile };
   })();
   globalThis.UR20MoveJImport = MoveJImport;
   var AudioEngine = /* @__PURE__ */ (function() {
@@ -29953,7 +32267,13 @@ move_frame("base", basePose, existingBaseParent)`;
     return { check, start, stop, poll, onChange, getState: getState2, isRunning, isActive, elapsedSeconds, latestResult };
   })();
   var Timeline = (function() {
-    const { withTimestamps: withTimestamps2, getTotalDuration: getTotalDuration2, minDurationFor: minDurationFor2, rollResize, findReorderTarget } = Sequence;
+    const {
+      withTimestamps: withTimestamps2,
+      getTotalDuration: getTotalDuration2,
+      minDurationFor: minDurationFor2,
+      resizePreservingDownstreamSeconds,
+      findReorderTarget
+    } = Sequence;
     let pxPerSec = 100;
     let scrollPx = 0;
     let els = {};
@@ -29970,8 +32290,8 @@ move_frame("base", basePose, existingBaseParent)`;
     function toPx(t2) {
       return t2 * pxPerSec;
     }
-    function toSec(px) {
-      return px / pxPerSec;
+    function toSec(px2) {
+      return px2 / pxPerSec;
     }
     function fmtTime(s2) {
       if (s2 < 0) s2 = 0;
@@ -30138,8 +32458,8 @@ move_frame("base", basePose, existingBaseParent)`;
         if (mode === "reorder" && cb.onReorder && lastTargetIndex != null) {
           cb.onReorder(id, lastTargetIndex);
         }
-        if ((mode === "resize-r" || mode === "resize-l") && cb.onResize && pendDuration != null) {
-          cb.onResize(id, mode === "resize-r" ? "right" : "left", pendDuration);
+        if (mode === "resize-r" && cb.onResize && pendDuration != null) {
+          cb.onResize(id, "right", pendDuration);
         }
       });
     }
@@ -30189,21 +32509,20 @@ move_frame("base", basePose, existingBaseParent)`;
         }
         showTip(cx, cy, `→ position ${target + 1}`);
       }
-      if (dragState.mode === "resize-r" || dragState.mode === "resize-l") {
+      if (dragState.mode === "resize-r") {
         const dxSec = toSec(mouseContentPx - dragState.startMouseContentPx);
-        const sign = dragState.mode === "resize-r" ? 1 : -1;
-        const rawDur = dragState.startOwnDuration + sign * dxSec;
+        const rawDur = dragState.startOwnDuration + dxSec;
         const wpStart = withTimestamps2(lastWaypoints)[dragState.index].start;
-        let snappedDur;
-        if (dragState.mode === "resize-r") {
-          const rawEdge = wpStart + rawDur;
-          snappedDur = snapTime(rawEdge) - wpStart;
-        } else {
-          const fixedEnd = wpStart + dragState.startOwnDuration;
-          const rawEdge = fixedEnd - rawDur;
-          snappedDur = fixedEnd - snapTime(rawEdge);
-        }
-        const preview = rollResize(lastWaypoints, dragState.index, dragState.mode === "resize-r" ? "right" : "left", snappedDur, lastInitialPose || void 0);
+        const rawEdge = wpStart + rawDur;
+        const snappedDur = snapTime(rawEdge) - wpStart;
+        const preview = resizePreservingDownstreamSeconds(
+          lastWaypoints,
+          dragState.index,
+          snappedDur,
+          lastInitialPose || void 0,
+          null,
+          false
+        );
         repositionAll(preview);
         const wp = preview[dragState.index];
         const t2 = withTimestamps2(preview)[dragState.index];
@@ -30316,9 +32635,10 @@ move_frame("base", basePose, existingBaseParent)`;
         blk.setAttribute("aria-pressed", String(isSel));
         blk.setAttribute("aria-label", `${wp.type === "wait" ? "Wait" : "MoveJ"} ${wp.name}, ${wp.duration.toFixed(3)} seconds. Control plus Left or Right Arrow reorders this block.`);
         blockEls.set(wp.id, blk);
-        const isFirst = i2 === 0;
+        const isAutoGap = wp.source?.kind === "duration-gap";
         const lh = document.createElement("div");
-        lh.className = "tl-rz-l" + (isFirst ? " disabled" : "");
+        lh.className = "tl-rz-l disabled";
+        lh.title = "Block start times are fixed";
         const body = document.createElement("div");
         body.className = "tl-blk-body";
         const nm = document.createElement("div");
@@ -30333,7 +32653,8 @@ move_frame("base", basePose, existingBaseParent)`;
         tm.textContent = `${fmtTime(wp.start)} → ${fmtTime(wp.end)}`;
         body.append(nm, tm);
         const rh = document.createElement("div");
-        rh.className = "tl-rz-r";
+        rh.className = "tl-rz-r" + (isAutoGap ? " disabled" : "");
+        rh.title = isAutoGap ? "Automatic timing filler" : "Change duration; later blocks stay fixed";
         blk.append(lh, body, rh);
         body.addEventListener("dblclick", (e2) => {
           e2.stopPropagation();
@@ -30359,24 +32680,16 @@ move_frame("base", basePose, existingBaseParent)`;
             lastClientY: e2.clientY
           };
         });
-        if (!isFirst) {
-          lh.addEventListener("mousedown", (e2) => {
+        if (!isAutoGap) {
+          rh.addEventListener("mousedown", (e2) => {
             e2.stopPropagation();
             e2.preventDefault();
             if (cb.onBlockClick) cb.onBlockClick(wp.id);
             document.body.style.cursor = "ew-resize";
             contentRect = els.content.getBoundingClientRect();
-            dragState = { mode: "resize-l", id: wp.id, index: i2, startX: e2.clientX, startOwnDuration: wp.duration, startMouseContentPx: e2.clientX - contentRect.left + scrollPx, lastClientX: e2.clientX, lastClientY: e2.clientY };
+            dragState = { mode: "resize-r", id: wp.id, index: i2, startX: e2.clientX, startOwnDuration: wp.duration, startMouseContentPx: e2.clientX - contentRect.left + scrollPx, lastClientX: e2.clientX, lastClientY: e2.clientY };
           });
         }
-        rh.addEventListener("mousedown", (e2) => {
-          e2.stopPropagation();
-          e2.preventDefault();
-          if (cb.onBlockClick) cb.onBlockClick(wp.id);
-          document.body.style.cursor = "ew-resize";
-          contentRect = els.content.getBoundingClientRect();
-          dragState = { mode: "resize-r", id: wp.id, index: i2, startX: e2.clientX, startOwnDuration: wp.duration, startMouseContentPx: e2.clientX - contentRect.left + scrollPx, lastClientX: e2.clientX, lastClientY: e2.clientY };
-        });
         blk.addEventListener("click", (e2) => {
           e2.stopPropagation();
           if (cb.onBlockClick) cb.onBlockClick(wp.id);
@@ -30463,7 +32776,7 @@ move_frame("base", basePose, existingBaseParent)`;
     }
     return { showToast: showToast2 };
   })();
-  var { initViewport, applyPose, syncWaypointVisuals, setShowFrame, setShowPath, setShowWaypoints, setShadows, renderFrame } = Viewport;
+  var { initViewport, applyPose, syncWaypointVisuals, setShowFrame, setShowPath, setShowWaypoints, setShadows, setCameraView, renderFrame } = Viewport;
   var {
     getState,
     subscribe,
@@ -30544,6 +32857,7 @@ move_frame("base", basePose, existingBaseParent)`;
     set("profile-controller", `${Math.round(PROFILE.controllerPeriod * 1e3)} ms`);
     set("profile-ramp", `${Math.round(PROFILE.rampTime * 1e3)} ms`);
     set("profile-fingerprint", PROFILE.fingerprint);
+    set("base-reference-label", robot.baseReference.uiLabel);
     set("controller-step-unit", `x ${Math.round(PROFILE.controllerPeriod * 1e3)} ms`);
     const durationInput = document.getElementById("inspector-duration-input");
     if (durationInput) {
@@ -30567,8 +32881,14 @@ move_frame("base", basePose, existingBaseParent)`;
     const importButton = document.getElementById("import-motion-btn");
     const importInput = document.getElementById("import-motion-inp");
     if (RobotMode.isFR5) {
-      if (importButton) importButton.hidden = true;
-      if (importInput) importInput.disabled = true;
+      if (importButton) {
+        importButton.hidden = false;
+        importButton.textContent = "Import Lua";
+      }
+      if (importInput) {
+        importInput.disabled = false;
+        importInput.accept = ".lua,text/plain";
+      }
       document.querySelector(".playback-mode")?.setAttribute("hidden", "");
       document.getElementById("ur20-live-status")?.setAttribute("hidden", "");
       document.getElementById("live-run-strip")?.setAttribute("hidden", "");
@@ -30590,6 +32910,17 @@ move_frame("base", basePose, existingBaseParent)`;
   configureRobotModeUI();
   var vpEl = document.getElementById("vp");
   initViewport(vpEl);
+  document.querySelectorAll("[data-camera-view]").forEach((button) => {
+    button.addEventListener("click", () => {
+      const viewId = button.dataset.cameraView;
+      if (!setCameraView(viewId)) return;
+      document.querySelectorAll("[data-camera-view]").forEach((candidate) => {
+        candidate.setAttribute("aria-pressed", String(candidate === button));
+      });
+      vpEl.dataset.cameraView = viewId;
+    });
+  });
+  vpEl.dataset.cameraView = "iso";
   var appEl = document.getElementById("app");
   var dirtyIndicatorEl = document.getElementById("dirty-indicator");
   var saveBadgeEl = document.getElementById("save-badge");
@@ -30715,6 +33046,7 @@ move_frame("base", basePose, existingBaseParent)`;
       return;
     }
     const { block, index, estimate } = context;
+    const isAutoGap = block.source?.kind === "duration-gap";
     blockInspectorEmptyEl.hidden = true;
     blockInspectorEl.hidden = false;
     blockInspectorEl.dataset.selectedType = block.type;
@@ -30725,6 +33057,10 @@ move_frame("base", basePose, existingBaseParent)`;
     blockNameInputEl.value = block.name;
     blockDurationInputEl.value = Number(block.duration).toFixed(3);
     blockStepsInputEl.value = String(block.durationSteps);
+    blockDurationInputEl.disabled = editorLocked || isAutoGap;
+    blockStepsInputEl.disabled = editorLocked || isAutoGap;
+    blockDurationInputEl.title = isAutoGap ? "This wait preserves the next block timestamp" : "";
+    blockStepsInputEl.title = blockDurationInputEl.title;
     if (moveBlockEarlierButtonEl) moveBlockEarlierButtonEl.disabled = editorLocked || index === 0;
     if (moveBlockLaterButtonEl) moveBlockLaterButtonEl.disabled = editorLocked || index === state.waypoints.length - 1;
     document.getElementById("block-joint-section").hidden = block.type !== "moveJ";
@@ -30736,7 +33072,7 @@ move_frame("base", basePose, existingBaseParent)`;
       setText("block-regime-value", estimate.regime || "Solved");
       setText("block-min-value", `${estimate.minimumDuration.toFixed(3)} s`);
     } else {
-      setText("block-timing-status", "Exact wait");
+      setText("block-timing-status", isAutoGap ? "Automatic timing filler" : "Exact wait");
       setText("block-a-value", "—");
       setText("block-v-value", "—");
       setText("block-regime-value", "Hold");
@@ -30817,6 +33153,14 @@ move_frame("base", basePose, existingBaseParent)`;
     wpLiMap.forEach((li, id) => li.classList.toggle("sel", id === selectedId));
   }
   function validationBadgeFor(wp, estimate) {
+    if (wp?.timingMode === "sampled") {
+      const frames = wp.source?.trace?.frameDurationsS?.length || 0;
+      return {
+        cls: "wp-val-converged",
+        label: `${frames} ServoJ frames`,
+        title: `Imported controller trajectory: ${frames} frame${frames === 1 ? "" : "s"}, preserved q and command duration per frame.`
+      };
+    }
     if (!estimate) return null;
     if (!estimate.feasible) {
       return {
@@ -31393,10 +33737,13 @@ move_frame("base", basePose, existingBaseParent)`;
     importReviewSummary.replaceChildren();
     const facts = [
       ["File", file.name],
+      ["Format", parsed.format || "UR motion"],
       ["MoveJ blocks", String(moveCount)],
       ["Wait blocks", String(waitCount)],
-      ["Imported waits", `${duration.toFixed(3)} s`]
+      ["Timeline duration", `${duration.toFixed(3)} s`]
     ];
+    if (Number.isInteger(parsed.frameCount)) facts.splice(2, 0, ["ServoJ frames", String(parsed.frameCount)]);
+    if (parsed.segmentation) facts.push(["Node reconstruction", parsed.segmentation.startsWith("exact-") ? "Exact" : "Inferred from sustained holds"]);
     facts.forEach(([label, value]) => {
       const row = document.createElement("div");
       const key = document.createElement("span");
@@ -31411,6 +33758,12 @@ move_frame("base", basePose, existingBaseParent)`;
       note.className = "import-note";
       note.textContent = `${normalizationCount} moveJ command${normalizationCount === 1 ? "" : "s"} will be converted to the constrained minimum time.`;
       importReviewSummary.appendChild(note);
+    }
+    if (parsed.initialPose) {
+      const appendChoice = document.querySelector('input[name="import-mode"][value="append"]');
+      const replaceChoice = document.querySelector('input[name="import-mode"][value="replace"]');
+      if (replaceChoice) replaceChoice.checked = true;
+      if (appendChoice) appendChoice.checked = false;
     }
     if (typeof importReviewDialog.showModal === "function") importReviewDialog.showModal();
     else importReviewDialog.setAttribute("open", "");
@@ -31433,7 +33786,8 @@ move_frame("base", basePose, existingBaseParent)`;
     if (!pendingMotionImport || editorLocked) return;
     const { parsed } = pendingMotionImport;
     const mode = document.querySelector('input[name="import-mode"]:checked')?.value || "append";
-    const count = importBlocks(parsed.blocks, { append: mode !== "replace" });
+    const replacing = mode === "replace";
+    const count = importBlocks(parsed.blocks, { append: !replacing, initialPose: replacing ? parsed.initialPose : null });
     const converted = parsed.normalizations.length;
     closeImportReview();
     showToast(
