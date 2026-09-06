@@ -28281,7 +28281,9 @@ globalThis.__FR5_BUILD_METADATA__=Object.freeze({"schemaVersion":1,"robotModel":
       payloadKg: 0,
       tcp: Object.freeze([0, 0, 0, 0, 0, 0]),
       gravity: Object.freeze([0, 0, 9.82]),
-      jointDomain: Object.freeze(MODE_PROFILE.jointDomain.map((bounds) => Object.freeze([...bounds])))
+      jointDomain: Object.freeze(MODE_PROFILE.jointDomain.map((bounds) => Object.freeze([...bounds]))),
+      jointMaxSpeeds: Object.freeze([...MODE_PROFILE.jointMaxSpeeds || Array(6).fill(MODE_PROFILE.maxVelocity)]),
+      jointMaxAccelerations: Object.freeze([...MODE_PROFILE.jointMaxAccelerations || Array(6).fill(MODE_PROFILE.maxAcceleration)])
     });
     const EPS = 1e-12;
     function isJointVector(q) {
@@ -28857,13 +28859,15 @@ globalThis.__FR5_BUILD_METADATA__=Object.freeze({"schemaVersion":1,"robotModel":
     const WAIT_MIN_DUR2 = 0.1;
     const WAIT_MIN_STEPS = secondsToSteps(WAIT_MIN_DUR2);
     const BOUNDARY_TOL = 0.05;
-    function durationStepsOf(wp) {
+    const SAMPLED_TIMING_ANALYSIS_VERSION = "sampled-path-min-v1";
+    const sampledTimingCache = /* @__PURE__ */ new WeakMap();
+    function durationStepsOf2(wp) {
       if (wp?.timingMode === "sampled" && Number.isFinite(wp.durationSteps) && wp.durationSteps >= 0) return wp.durationSteps;
       if (wp?.source?.exactTiming === true && Number.isFinite(wp.durationSteps) && wp.durationSteps >= 0) return wp.durationSteps;
       if (Number.isInteger(wp && wp.durationSteps) && wp.durationSteps >= 0) return wp.durationSteps;
       return secondsToSteps(Math.max(0, Number(wp && wp.duration) || 0));
     }
-    function previousMotionQ(waypoints, index, fallbackQ = POSE_HOME2) {
+    function previousMotionQ2(waypoints, index, fallbackQ = POSE_HOME2) {
       for (let i2 = index - 1; i2 >= 0; i2--) if (waypoints[i2] && isJointVector(waypoints[i2].q)) return waypoints[i2].q;
       return fallbackQ;
     }
@@ -28917,6 +28921,8 @@ globalThis.__FR5_BUILD_METADATA__=Object.freeze({"schemaVersion":1,"robotModel":
         const rawSteps = elapsed / PROFILE2.controllerPeriod;
         const nearestStep = Math.round(rawSteps);
         const steps = Math.abs(rawSteps - nearestStep) <= 1e-7 ? nearestStep : rawSteps;
+        const sampledAnalysis = sampledTimingAnalysis2(wp, qStart);
+        const sampledCertified = sampledAnalysis.floorVerified && Number.isInteger(steps) && steps >= sampledAnalysis.minimumSteps;
         return {
           ...wp,
           durationSteps: steps,
@@ -28929,15 +28935,17 @@ globalThis.__FR5_BUILD_METADATA__=Object.freeze({"schemaVersion":1,"robotModel":
             requestSignature: `sampled:${durations.length}:${elapsed.toFixed(9)}`,
             wholeCallSteps: steps,
             continuousSeconds: elapsed,
-            minimumSteps: steps,
+            minimumSteps: sampledAnalysis.minimumSteps,
             regime: "sampled-servoj",
             containsCruise: false,
-            leadingJoints: [],
-            certified: true,
-            certificationReasons: [],
+            leadingJoints: sampledAnalysis.limitingJoint == null ? [] : [sampledAnalysis.limitingJoint],
+            certified: sampledCertified,
+            certificationReasons: sampledCertified ? [] : [`sampled path requires at least ${sampledAnalysis.minimumSteps} controller ticks`],
             uncertaintyLowerSteps: 0,
             uncertaintyUpperSteps: 0,
-            sampled: true
+            sampled: true,
+            sampledTimingAnalysisVersion: SAMPLED_TIMING_ANALYSIS_VERSION,
+            sampledLimiter: sampledAnalysis.limitingKind
           },
           _calibratedAV: void 0,
           validation: void 0
@@ -28948,7 +28956,7 @@ globalThis.__FR5_BUILD_METADATA__=Object.freeze({"schemaVersion":1,"robotModel":
       if (mode === "command" && wp.command) {
         result = predictMoveJ(qStart, wp.q, Number(wp.command.a), Number(wp.command.v));
       } else if (mode === "authored") {
-        result = commandForDurationSteps(qStart, wp.q, durationStepsOf(wp));
+        result = commandForDurationSteps(qStart, wp.q, durationStepsOf2(wp));
       } else {
         mode = "fastest";
         result = minimum;
@@ -29015,11 +29023,223 @@ globalThis.__FR5_BUILD_METADATA__=Object.freeze({"schemaVersion":1,"robotModel":
         }
       };
     }
+    function sampledBasisData(block, fallbackStart = POSE_HOME2) {
+      const trace = block?.source?.trace;
+      const basis = trace?.retimeBasis || trace;
+      const positions = basis?.positionsRad, durations = basis?.frameDurationsS;
+      if (!basis || !Array.isArray(positions) || !Array.isArray(durations) || !durations.length || positions.length !== durations.length * 6) {
+        throw new Error(`${block?.name || "ServoJ trajectory"} has invalid sampled trajectory data`);
+      }
+      const startQ = isJointVector(basis.startQ) ? basis.startQ : isJointVector(trace?.startQ) ? trace.startQ : fallbackStart;
+      if (!isJointVector(startQ)) throw new Error(`${block?.name || "ServoJ trajectory"} has no valid start configuration`);
+      const endTimes = new Array(durations.length);
+      let elapsed = 0;
+      for (let frame = 0; frame < durations.length; frame++) {
+        const duration = Number(durations[frame]);
+        const q = positions.slice(frame * 6, frame * 6 + 6);
+        if (!(duration > 0) || !isJointVector(q) || !pathIsLegal(q, q)) {
+          throw new Error(`${block?.name || "ServoJ trajectory"} has invalid frame ${frame + 1}`);
+        }
+        elapsed += duration;
+        endTimes[frame] = elapsed;
+      }
+      return { trace, basis, positions, durations, startQ: [...startQ], endTimes, sourceDuration: elapsed };
+    }
+    function validateSampledRetime(block, steps, data) {
+      const period = PROFILE2.controllerPeriod;
+      const probeTrace = data.trace?.retimeBasis ? data.trace : { ...data.trace, retimeBasis: data.basis };
+      const probe = { ...block, source: { ...block.source, trace: probeTrace } };
+      const retimed = retimeSampledBlock(probe, steps);
+      const output = retimed.source.trace.positionsRad;
+      const velocities = new Array(6).fill(0);
+      let previous = [...data.startQ], maxVelocityRatio = 0, maxAccelerationRatio = 0;
+      let peakVelocity = 0, peakAcceleration = 0;
+      for (let tick = 0; tick < steps; tick++) {
+        const q = output.slice(tick * 6, tick * 6 + 6);
+        if (!pathIsLegal(previous, q)) return { ok: false, kind: "joint range", joint: null };
+        const nextVelocity = new Array(6);
+        for (let joint = 0; joint < 6; joint++) {
+          const velocity = (q[joint] - previous[joint]) / period;
+          const acceleration = (velocity - velocities[joint]) / period;
+          const vRatio = Math.abs(velocity) / PROFILE2.jointMaxSpeeds[joint];
+          const aRatio = Math.abs(acceleration) / PROFILE2.jointMaxAccelerations[joint];
+          peakVelocity = Math.max(peakVelocity, Math.abs(velocity));
+          peakAcceleration = Math.max(peakAcceleration, Math.abs(acceleration));
+          if (vRatio > maxVelocityRatio) maxVelocityRatio = vRatio;
+          if (aRatio > maxAccelerationRatio) maxAccelerationRatio = aRatio;
+          if (vRatio > 1 + 1e-8) return { ok: false, kind: "velocity", joint, ratio: vRatio };
+          if (aRatio > 1 + 1e-8) return { ok: false, kind: "acceleration", joint, ratio: aRatio };
+          nextVelocity[joint] = velocity;
+        }
+        for (let joint = 0; joint < 6; joint++) velocities[joint] = nextVelocity[joint];
+        previous = q;
+      }
+      for (let joint = 0; joint < 6; joint++) {
+        const ratio = Math.abs(velocities[joint] / period) / PROFILE2.jointMaxAccelerations[joint];
+        if (ratio > maxAccelerationRatio) maxAccelerationRatio = ratio;
+        if (ratio > 1 + 1e-8) return { ok: false, kind: "stop acceleration", joint, ratio };
+      }
+      const sourceStep = data.sourceDuration / steps;
+      for (let frame = 0; frame < data.durations.length; frame++) {
+        const sampleIndex = data.endTimes[frame] / sourceStep;
+        const whole = Math.floor(sampleIndex + 1e-10);
+        const fraction = Math.max(0, Math.min(1, sampleIndex - whole));
+        for (let joint = 0; joint < 6; joint++) {
+          let approximate;
+          if (whole >= steps) {
+            approximate = output[(steps - 1) * 6 + joint];
+          } else if (fraction <= 1e-9 && whole > 0) {
+            approximate = output[(whole - 1) * 6 + joint];
+          } else {
+            const from = whole === 0 ? data.startQ[joint] : output[(whole - 1) * 6 + joint];
+            const to = output[whole * 6 + joint];
+            approximate = from + (to - from) * fraction;
+          }
+          const error = Math.abs(data.positions[frame * 6 + joint] - approximate);
+          const tolerance = 0.5 * PROFILE2.jointMaxSpeeds[joint] * period + 1e-9;
+          if (error > tolerance) return { ok: false, kind: "path fidelity", joint, ratio: error / tolerance };
+        }
+      }
+      return {
+        ok: true,
+        kind: "qualified",
+        joint: null,
+        maxVelocityRatio,
+        maxAccelerationRatio,
+        peakVelocity,
+        peakAcceleration
+      };
+    }
+    function sampledTimingAnalysis2(block, fallbackStart = POSE_HOME2) {
+      const data = sampledBasisData(block, fallbackStart);
+      let cacheByBoundary = sampledTimingCache.get(data.basis);
+      if (!cacheByBoundary) {
+        cacheByBoundary = /* @__PURE__ */ new Map();
+        sampledTimingCache.set(data.basis, cacheByBoundary);
+      }
+      const boundaryKey = `${PROFILE2.fingerprint}|${data.startQ.map((value) => value.toFixed(9)).join(",")}|stop|${SAMPLED_TIMING_ANALYSIS_VERSION}`;
+      const cached = cacheByBoundary.get(boundaryKey);
+      if (cached) return cached;
+      let previous = [...data.startQ], previousVelocity = new Array(6).fill(0), previousDuration = 0;
+      let maxVelocityRatio = 0, maxAccelerationRatio = 0, pathSeconds = 0;
+      let velocityJoint = null, accelerationJoint = null;
+      for (let frame = 0; frame < data.durations.length; frame++) {
+        const duration = data.durations[frame];
+        const q = data.positions.slice(frame * 6, frame * 6 + 6);
+        const velocity = new Array(6);
+        let segmentSeconds = 0;
+        for (let joint = 0; joint < 6; joint++) {
+          const delta = q[joint] - previous[joint];
+          const v2 = delta / duration;
+          const vRatio = Math.abs(v2) / PROFILE2.jointMaxSpeeds[joint];
+          if (vRatio > maxVelocityRatio) {
+            maxVelocityRatio = vRatio;
+            velocityJoint = joint;
+          }
+          const required = Math.abs(delta) / PROFILE2.jointMaxSpeeds[joint];
+          if (required > segmentSeconds) segmentSeconds = required;
+          velocity[joint] = v2;
+        }
+        pathSeconds += segmentSeconds;
+        const accelInterval = frame === 0 ? duration : (duration + previousDuration) / 2;
+        for (let joint = 0; joint < 6; joint++) {
+          const a2 = (velocity[joint] - previousVelocity[joint]) / accelInterval;
+          const ratio = Math.abs(a2) / PROFILE2.jointMaxAccelerations[joint];
+          if (ratio > maxAccelerationRatio) {
+            maxAccelerationRatio = ratio;
+            accelerationJoint = joint;
+          }
+        }
+        previous = q;
+        previousVelocity = velocity;
+        previousDuration = duration;
+      }
+      for (let joint = 0; joint < 6; joint++) {
+        const ratio = Math.abs(previousVelocity[joint] / previousDuration) / PROFILE2.jointMaxAccelerations[joint];
+        if (ratio > maxAccelerationRatio) {
+          maxAccelerationRatio = ratio;
+          accelerationJoint = joint;
+        }
+      }
+      const velocitySeconds = data.sourceDuration * maxVelocityRatio;
+      const accelerationSeconds = data.sourceDuration * Math.sqrt(maxAccelerationRatio);
+      let limitingKind = "controller tick", limitingJoint = null, analyticalSeconds = PROFILE2.controllerPeriod;
+      const takeLimit = (seconds, kind, joint) => {
+        if (seconds > analyticalSeconds + 1e-12) {
+          analyticalSeconds = seconds;
+          limitingKind = kind;
+          limitingJoint = joint;
+        }
+      };
+      takeLimit(velocitySeconds, "velocity", velocityJoint);
+      takeLimit(accelerationSeconds, "acceleration", accelerationJoint);
+      takeLimit(pathSeconds, "path length", null);
+      let lowerSteps = Math.max(1, Math.ceil(analyticalSeconds / PROFILE2.controllerPeriod - 1e-10));
+      const sourceSteps = Math.max(1, Math.ceil(data.sourceDuration / PROFILE2.controllerPeriod - 1e-10));
+      let floorCheck, minimumSteps = lowerSteps, floorVerified = false;
+      if (lowerSteps > sourceSteps) {
+        floorCheck = { ok: false, kind: "source outside profile", joint: limitingJoint };
+        minimumSteps = sourceSteps;
+        limitingKind = "original sampled duration";
+        limitingJoint = null;
+      } else {
+        floorCheck = validateSampledRetime(block, lowerSteps, data);
+        floorVerified = floorCheck.ok;
+      }
+      if (!floorVerified && lowerSteps <= sourceSteps) {
+        const failedAtAnalyticalFloor = floorCheck;
+        let high = sourceSteps;
+        let highCheck = lowerSteps < sourceSteps ? validateSampledRetime(block, high, data) : floorCheck;
+        if (lowerSteps < sourceSteps && highCheck.ok) {
+          let low = lowerSteps;
+          while (low + 1 < high) {
+            const mid = Math.floor((low + high) / 2);
+            const check = validateSampledRetime(block, mid, data);
+            if (check.ok) {
+              high = mid;
+              highCheck = check;
+              minimumSteps = mid;
+            } else low = mid;
+          }
+          if (minimumSteps === lowerSteps) minimumSteps = high;
+          floorCheck = highCheck;
+          floorVerified = true;
+          if (minimumSteps > lowerSteps) {
+            limitingKind = `fixed-tick ${failedAtAnalyticalFloor.kind}`;
+            limitingJoint = failedAtAnalyticalFloor.joint;
+          }
+        } else {
+          minimumSteps = sourceSteps;
+          floorCheck = highCheck;
+          limitingKind = "original sampled duration";
+          limitingJoint = null;
+        }
+      }
+      const analysis = Object.freeze({
+        version: SAMPLED_TIMING_ANALYSIS_VERSION,
+        minimumSteps,
+        minimumDuration: stepsToSeconds(minimumSteps),
+        sourceSteps,
+        analyticalMinimumSteps: lowerSteps,
+        sourceDuration: data.sourceDuration,
+        sourceFrameCount: data.durations.length,
+        limitingKind,
+        limitingJoint,
+        floorVerified,
+        peakVelocity: floorCheck.peakVelocity || 0,
+        peakAcceleration: floorCheck.peakAcceleration || 0
+      });
+      cacheByBoundary.set(boundaryKey, analysis);
+      return analysis;
+    }
+    function sampledMinimumSteps(block, fallbackStart = POSE_HOME2) {
+      return sampledTimingAnalysis2(block, fallbackStart).minimumSteps;
+    }
     function resolveSequence(waypoints, fallbackQ = POSE_HOME2) {
       let previousQ = fallbackQ;
       return waypoints.map((wp) => {
         if (wp.type === "wait") {
-          const steps = wp.source?.exactTiming === true ? Math.max(0, durationStepsOf(wp)) : Math.max(WAIT_MIN_STEPS, durationStepsOf(wp));
+          const steps = wp.source?.exactTiming === true ? Math.max(0, durationStepsOf2(wp)) : Math.max(WAIT_MIN_STEPS, durationStepsOf2(wp));
           return {
             ...wp,
             q: null,
@@ -29040,7 +29260,7 @@ globalThis.__FR5_BUILD_METADATA__=Object.freeze({"schemaVersion":1,"robotModel":
     function withTimestamps2(waypoints) {
       let step = 0;
       return waypoints.map((wp) => {
-        const durationSteps = durationStepsOf(wp);
+        const durationSteps = durationStepsOf2(wp);
         const startSteps = step, endSteps = step + durationSteps;
         step = endSteps;
         return {
@@ -29055,14 +29275,16 @@ globalThis.__FR5_BUILD_METADATA__=Object.freeze({"schemaVersion":1,"robotModel":
       });
     }
     function getTotalDuration2(waypoints) {
-      return stepsToSeconds(waypoints.reduce((s2, wp) => s2 + durationStepsOf(wp), 0));
+      return stepsToSeconds(waypoints.reduce((s2, wp) => s2 + durationStepsOf2(wp), 0));
     }
     function minDurationFor2(waypoints, index, fallbackQ = POSE_HOME2) {
       const wp = waypoints[index];
       if (!wp) return WAIT_MIN_DUR2;
       if (wp.type === "wait" || !wp.q) return WAIT_MIN_DUR2;
-      if (wp.timingMode === "sampled") return PROFILE2.controllerPeriod;
-      const prevQ = previousMotionQ(waypoints, index, fallbackQ);
+      if (wp.timingMode === "sampled") {
+        return stepsToSeconds(sampledMinimumSteps(wp, previousMotionQ2(waypoints, index, fallbackQ)));
+      }
+      const prevQ = previousMotionQ2(waypoints, index, fallbackQ);
       return fastestEquivalent(prevQ, wp.q).durationSeconds;
     }
     function findInsertionContext(waypoints, t2, tol = BOUNDARY_TOL) {
@@ -29106,9 +29328,9 @@ globalThis.__FR5_BUILD_METADATA__=Object.freeze({"schemaVersion":1,"robotModel":
         if (block.type === "moveJ") block.timingMode = "authored";
       };
       const ownerId = wp.id || `block-${index}`;
-      const oldSteps = durationStepsOf(wp);
+      const oldSteps = durationStepsOf2(wp);
       const existingGap = isOwnedTimingGap(wps[index + 1], ownerId) ? wps[index + 1] : null;
-      const existingGapSteps = existingGap ? durationStepsOf(existingGap) : 0;
+      const existingGapSteps = existingGap ? durationStepsOf2(existingGap) : 0;
       const successorIndex = index + 1 + (existingGap ? 1 : 0);
       if (successorIndex >= wps.length) {
         if (existingGap) wps.splice(index + 1, 1);
@@ -29223,7 +29445,7 @@ globalThis.__FR5_BUILD_METADATA__=Object.freeze({"schemaVersion":1,"robotModel":
       const fixed = resolveSequence(waypoints, fallbackQ);
       const changed = fixed.some((wp, i2) => {
         const old = waypoints[i2];
-        if (!old || durationStepsOf(old) !== wp.durationSteps || old.timingMode !== wp.timingMode) return true;
+        if (!old || durationStepsOf2(old) !== wp.durationSteps || old.timingMode !== wp.timingMode) return true;
         if (wp.type === "moveJ" && wp.timingMode !== "sampled") {
           return !old.command || Math.abs(Number(old.command.a) - wp.command.a) > 1e-12 || Math.abs(Number(old.command.v) - wp.command.v) > 1e-12 || !old.timing || old.timing.requestSignature !== wp.timing.requestSignature;
         }
@@ -29235,10 +29457,12 @@ globalThis.__FR5_BUILD_METADATA__=Object.freeze({"schemaVersion":1,"robotModel":
       WAIT_MIN_STEPS,
       WAIT_MIN_DUR: WAIT_MIN_DUR2,
       BOUNDARY_TOL,
-      durationStepsOf,
-      previousMotionQ,
+      durationStepsOf: durationStepsOf2,
+      previousMotionQ: previousMotionQ2,
       resolveMoveBlock,
       retimeSampledBlock,
+      sampledTimingAnalysis: sampledTimingAnalysis2,
+      sampledMinimumSteps,
       resolveSequence,
       withTimestamps: withTimestamps2,
       getTotalDuration: getTotalDuration2,
@@ -29265,7 +29489,7 @@ globalThis.__FR5_BUILD_METADATA__=Object.freeze({"schemaVersion":1,"robotModel":
       findNearestBoundaryIndex,
       resolveSequence,
       minDurationFor: minDurationFor2,
-      durationStepsOf
+      durationStepsOf: durationStepsOf2
     } = Sequence;
     const { PROFILE: PROFILE2, isJointVector, pathIsLegal, secondsToSteps, stepsToSeconds } = MoveJEngine;
     let _idCounter = 0;
@@ -29412,7 +29636,7 @@ globalThis.__FR5_BUILD_METADATA__=Object.freeze({"schemaVersion":1,"robotModel":
     function durationEditChanged(before, after) {
       return before.length !== after.length || after.some((block, index) => {
         const old = before[index];
-        return !old || old.id !== block.id || durationStepsOf(old) !== durationStepsOf(block);
+        return !old || old.id !== block.id || durationStepsOf2(old) !== durationStepsOf2(block);
       });
     }
     function resizeBlockEdge2(id, side, newOwnDuration) {
@@ -30454,7 +30678,7 @@ globalThis.__FR5_BUILD_METADATA__=Object.freeze({"schemaVersion":1,"robotModel":
   var UrpxExport = (function() {
     const { fkEE, getPos, norm3, rotToRV, POSE_HOME: POSE_HOME2 } = Kinematics;
     const { PROFILE: PROFILE2, isJointVector, pathIsLegal, predictMoveJ } = MoveJEngine;
-    const { WAIT_MIN_DUR: WAIT_MIN_DUR2, previousMotionQ } = Sequence;
+    const { WAIT_MIN_DUR: WAIT_MIN_DUR2, previousMotionQ: previousMotionQ2 } = Sequence;
     const MOTION_LIMITS = {
       minJointSpeed: 1e-3,
       maxJointSpeedFallback: PROFILE2.maxVelocity,
@@ -30999,7 +31223,7 @@ move_frame("base", basePose, existingBaseParent)`;
   var FairinoExport = (function() {
     const { PROFILE: PROFILE2, isJointVector, pathIsLegal, predictMoveJ, sample } = MoveJEngine;
     const { POSE_HOME: POSE_HOME2 } = Kinematics;
-    const { durationStepsOf } = Sequence;
+    const { durationStepsOf: durationStepsOf2, sampledTimingAnalysis: sampledTimingAnalysis2 } = Sequence;
     const COMPACT_STATEMENT_THRESHOLD = 2e3;
     const COMPACT_SCALE_DEG = 1e-6;
     const COMPACT_RECORD_BYTES = 28;
@@ -31042,6 +31266,10 @@ move_frame("base", basePose, existingBaseParent)`;
       if (trace.startQ && (!isJointVector(trace.startQ) || trace.startQ.some((value, joint) => Math.abs(value - previous[joint]) > 1e-7))) {
         throw new Error(`MoveJ ${index + 1} sampled trajectory starts from a different robot configuration`);
       }
+      const analysis = sampledTimingAnalysis2(block, previous);
+      if (durationStepsOf2(block) < analysis.minimumSteps) {
+        throw new Error(`MoveJ ${index + 1} is shorter than its sampled-path minimum of ${analysis.minimumSteps} controller ticks`);
+      }
       return durations.map((rawDuration, frame) => {
         const q = positions.slice(frame * 6, frame * 6 + 6);
         const duration = Number(rawDuration);
@@ -31053,7 +31281,7 @@ move_frame("base", basePose, existingBaseParent)`;
     }
     function motionFrames(block, previous, index) {
       if (block.timingMode === "sampled") return sampledFrames(block, previous, index);
-      const steps = durationStepsOf(block);
+      const steps = durationStepsOf2(block);
       if (!Number.isInteger(steps) || steps < 1) throw new Error(`MoveJ ${index + 1} has an invalid controller-tick duration`);
       const command = block.command || { a: PROFILE2.maxAcceleration, v: PROFILE2.maxVelocity };
       const solved = predictMoveJ(previous, block.q, command.a, command.v);
@@ -31072,7 +31300,7 @@ move_frame("base", basePose, existingBaseParent)`;
       const nodes = waypoints.map((block, index) => {
         const name = ascii(block.name, `Block ${index + 1}`);
         if (block.type === "wait") {
-          const steps = durationStepsOf(block);
+          const steps = durationStepsOf2(block);
           if (!Number.isInteger(steps) || steps < 0) throw new Error(`Wait ${index + 1} has an invalid controller-tick duration`);
           literalStatements++;
           const node2 = {
@@ -32810,7 +33038,16 @@ move_frame("base", basePose, existingBaseParent)`;
     canUndo,
     canRedo
   } = AppState;
-  var { withTimestamps, getTotalDuration, minDurationFor, WAIT_MIN_DUR, poseAtTime } = Sequence;
+  var {
+    withTimestamps,
+    getTotalDuration,
+    minDurationFor,
+    WAIT_MIN_DUR,
+    poseAtTime,
+    sampledTimingAnalysis,
+    previousMotionQ,
+    durationStepsOf
+  } = Sequence;
   var { POSE_HOME, POSE_ZERO, POSE_UP } = Kinematics;
   var { PROFILE } = MoveJEngine;
   var { initJog, step: jogStep, syncSlidersFromQ } = Jog;
@@ -32987,8 +33224,10 @@ move_frame("base", basePose, existingBaseParent)`;
     const timed = withTimestamps(state.waypoints);
     const index = timed.findIndex((block) => block.id === state.selectedId);
     if (index < 0) return null;
-    const estimate = UrpxExport.estimateAllSegments(state.waypoints, state.initialPose)[index] || null;
-    return { block: timed[index], index, estimate };
+    const sourceBlock = state.waypoints[index];
+    const sampledAnalysis = sourceBlock.timingMode === "sampled" ? sampledTimingAnalysis(sourceBlock, previousMotionQ(state.waypoints, index, state.initialPose)) : null;
+    const estimate = sampledAnalysis ? null : UrpxExport.estimateSegment(state.waypoints, index, state.initialPose);
+    return { block: timed[index], index, estimate, sampledAnalysis };
   }
   function setText(id, value) {
     const target = document.getElementById(id);
@@ -33045,7 +33284,7 @@ move_frame("base", basePose, existingBaseParent)`;
       if (moveBlockLaterButtonEl) moveBlockLaterButtonEl.disabled = true;
       return;
     }
-    const { block, index, estimate } = context;
+    const { block, index, estimate, sampledAnalysis } = context;
     const isAutoGap = block.source?.kind === "duration-gap";
     blockInspectorEmptyEl.hidden = true;
     blockInspectorEl.hidden = false;
@@ -33057,6 +33296,9 @@ move_frame("base", basePose, existingBaseParent)`;
     blockNameInputEl.value = block.name;
     blockDurationInputEl.value = Number(block.duration).toFixed(3);
     blockStepsInputEl.value = String(block.durationSteps);
+    const minimumSteps = sampledAnalysis?.minimumSteps || estimate?.minimumSteps || Sequence.WAIT_MIN_STEPS;
+    blockDurationInputEl.min = String(minimumSteps * PROFILE.controllerPeriod);
+    blockStepsInputEl.min = String(minimumSteps);
     blockDurationInputEl.disabled = editorLocked || isAutoGap;
     blockStepsInputEl.disabled = editorLocked || isAutoGap;
     blockDurationInputEl.title = isAutoGap ? "This wait preserves the next block timestamp" : "";
@@ -33065,7 +33307,18 @@ move_frame("base", basePose, existingBaseParent)`;
     if (moveBlockLaterButtonEl) moveBlockLaterButtonEl.disabled = editorLocked || index === state.waypoints.length - 1;
     document.getElementById("block-joint-section").hidden = block.type !== "moveJ";
     document.getElementById("block-minimum-btn").hidden = block.type !== "moveJ";
-    if (block.type === "moveJ" && estimate) {
+    if (block.type === "moveJ" && sampledAnalysis) {
+      const withinFloor = durationStepsOf(block) >= sampledAnalysis.minimumSteps;
+      const limiter = sampledAnalysis.limitingJoint == null ? sampledAnalysis.limitingKind : `J${sampledAnalysis.limitingJoint + 1} ${sampledAnalysis.limitingKind}`;
+      setText("block-timing-status", !sampledAnalysis.floorVerified ? "Original duration locked" : withinFloor ? "Sampled timing valid" : "Below sampled minimum");
+      setText("block-a-value", sampledAnalysis.peakAcceleration.toFixed(3) + " rad/s²");
+      setText("block-v-value", sampledAnalysis.peakVelocity.toFixed(3) + " rad/s");
+      setText("block-regime-value", `Full path · ${limiter}`);
+      setText("block-min-value", `${sampledAnalysis.minimumDuration.toFixed(3)} s · ${sampledAnalysis.minimumSteps} ticks`);
+      const help = sampledAnalysis.floorVerified ? `Full ${sampledAnalysis.sourceFrameCount}-frame path minimum, limited by ${limiter}.` : "The imported stream itself is outside the configured derivative envelope, so shortening is disabled.";
+      blockDurationInputEl.title = help;
+      blockStepsInputEl.title = help;
+    } else if (block.type === "moveJ" && estimate) {
       setText("block-timing-status", estimate.feasible ? "Solved" : "Outside profile");
       setText("block-a-value", Number(estimate.a).toFixed(3) + " rad/s²");
       setText("block-v-value", Number(estimate.v).toFixed(3) + " rad/s");
@@ -33152,13 +33405,15 @@ move_frame("base", basePose, existingBaseParent)`;
   function updateWPListSelection(selectedId) {
     wpLiMap.forEach((li, id) => li.classList.toggle("sel", id === selectedId));
   }
-  function validationBadgeFor(wp, estimate) {
-    if (wp?.timingMode === "sampled") {
+  function validationBadgeFor(wp, estimate, sampledAnalysis = null) {
+    if (wp?.timingMode === "sampled" && sampledAnalysis) {
       const frames = wp.source?.trace?.frameDurationsS?.length || 0;
+      const withinFloor = durationStepsOf(wp) >= sampledAnalysis.minimumSteps;
+      const limiter = sampledAnalysis.limitingJoint == null ? sampledAnalysis.limitingKind : `J${sampledAnalysis.limitingJoint + 1} ${sampledAnalysis.limitingKind}`;
       return {
-        cls: "wp-val-converged",
-        label: `${frames} ServoJ frames`,
-        title: `Imported controller trajectory: ${frames} frame${frames === 1 ? "" : "s"}, preserved q and command duration per frame.`
+        cls: !sampledAnalysis.floorVerified ? "wp-val-estimated" : withinFloor ? "wp-val-converged" : "wp-val-impossible",
+        label: !sampledAnalysis.floorVerified ? `${frames} frames · source locked` : withinFloor ? `${frames} frames · min ${sampledAnalysis.minimumDuration.toFixed(3)}s` : "below path minimum",
+        title: `Imported controller path: minimum ${sampledAnalysis.minimumSteps} ticks from all six joints, start/stop dynamics, reversals, and path fidelity; limited by ${limiter}.`
       };
     }
     if (!estimate) return null;
@@ -33180,7 +33435,7 @@ move_frame("base", basePose, existingBaseParent)`;
   function renderWPList(waypoints, selectedId, initialPose) {
     wpUl.innerHTML = "";
     wpLiMap = /* @__PURE__ */ new Map();
-    const estimates = UrpxExport.estimateAllSegments(waypoints, initialPose);
+    const estimates = waypoints.map((wp, index) => wp.timingMode === "sampled" ? null : UrpxExport.estimateSegment(waypoints, index, initialPose));
     withTimestamps(waypoints).forEach((wp, i2) => {
       const li = document.createElement("li");
       li.className = "wp-li" + (wp.id === selectedId ? " sel" : "");
@@ -33206,7 +33461,8 @@ move_frame("base", basePose, existingBaseParent)`;
       coords.className = "wp-coords";
       coords.textContent = `${timeline.fmtTime(wp.start)} → ${timeline.fmtTime(wp.end)}  (${wp.duration.toFixed(3)}s · ${wp.durationSteps} steps)`;
       body.append(name, coords);
-      const valInfo = validationBadgeFor(wp, estimates[i2]);
+      const sampledAnalysis = wp.timingMode === "sampled" ? Sequence.sampledTimingAnalysis(waypoints[i2], Sequence.previousMotionQ(waypoints, i2, initialPose)) : null;
+      const valInfo = validationBadgeFor(wp, estimates[i2], sampledAnalysis);
       if (valInfo) {
         const val = document.createElement("span");
         val.className = "wp-val " + valInfo.cls;
@@ -34185,7 +34441,14 @@ move_frame("base", basePose, existingBaseParent)`;
     audio.syncVisualScroll(timeline.getScroll(), timeline.getZoom());
   }
   requestAnimationFrame(loop);
-  window.__choreography = { robotMode: RobotMode.id, getState, setRobotPose, audio, liveSync: LiveSync, requestPlayback, recordAt, confirmInsert, cancelInsert, timeline, undo, redo, copyWaypoint, cutWaypoint, pasteAt, hasClipboard, renameWaypoint, smartSaveProject, buildFairinoLua };
+  function timingFloorForBlock(id) {
+    const state = getState();
+    const index = state.waypoints.findIndex((block) => block.id === id);
+    if (index < 0) return null;
+    const seconds = minDurationFor(state.waypoints, index, state.initialPose);
+    return { seconds, steps: Math.round(seconds / PROFILE.controllerPeriod) };
+  }
+  window.__choreography = { robotMode: RobotMode.id, getState, setRobotPose, audio, liveSync: LiveSync, requestPlayback, recordAt, confirmInsert, cancelInsert, timeline, undo, redo, copyWaypoint, cutWaypoint, pasteAt, hasClipboard, renameWaypoint, smartSaveProject, buildFairinoLua, timingFloorForBlock };
   window.__ur20 = window.__choreography;
 })();
 </script>
