@@ -618,6 +618,7 @@ body.editor-locked #tl-open-btn{opacity:.48}
       <button class="toolbar-btn" id="save-project-as-btn" type="button" title="Choose a new project file" data-editor-mutation>Save As</button>
       <span id="save-badge" role="status">Saved</span>
       <button class="toolbar-btn autosave-retry" id="retry-autosave-btn" type="button" hidden>Retry autosave</button>
+      <button class="toolbar-btn" id="start-fresh-btn" type="button" hidden>Start fresh</button>
       <input type="file" id="load-project-inp" accept=".ur20proj,.fr5proj,.json" class="visually-hidden">
       <button class="toolbar-btn" id="import-motion-btn" type="button" data-editor-mutation>Import</button>
       <input type="file" id="import-motion-inp" accept=".script,.urscript,.urpx,.lua,application/json,text/plain" class="visually-hidden">
@@ -33343,6 +33344,9 @@ move_frame("base", basePose, existingBaseParent)`;
       const projectData = await decodeProjectData(record);
       return { ...record, storageSchema: SCHEMA, projectData, migratedFromLegacy: schema === LEGACY_SCHEMA || Boolean(record.projectData) };
     }
+    async function clearWorkspace(robotId) {
+      return remove(workspaceId(robotId));
+    }
     async function saveWorkspace(record) {
       const { projectData, ...metadata } = record;
       const encoded = await encodeProjectData(projectData);
@@ -33388,6 +33392,7 @@ move_frame("base", basePose, existingBaseParent)`;
       SCHEMA,
       loadWorkspace,
       saveWorkspace,
+      clearWorkspace,
       loadProjectFileHandle,
       saveProjectFileHandle,
       stagePortableProject,
@@ -33432,6 +33437,8 @@ move_frame("base", basePose, existingBaseParent)`;
       retry.textContent = workspaceRestoreBlocked ? "Retry restore" : "Retry autosave";
       retry.title = errorMessage || "Retry device autosave";
     }
+    const startFresh = document.getElementById("start-fresh-btn");
+    if (startFresh) startFresh.hidden = !workspaceRestoreBlocked;
   }
   function setLocalSaveStatus(status, error = null) {
     if (error) workspaceLastError = error;
@@ -33520,6 +33527,36 @@ move_frame("base", basePose, existingBaseParent)`;
     if (workspaceRestoreBlocked) globalThis.location.reload();
     else void persistWorkspaceNow();
   });
+  document.getElementById("start-fresh-btn")?.addEventListener("click", async () => {
+    if (!workspaceRestoreBlocked) return;
+    const button = document.getElementById("start-fresh-btn");
+    if (button) button.disabled = true;
+    try {
+      await WorkspacePersistence.clearWorkspace(RobotMode.id);
+      await WorkspacePersistence.saveProjectFileHandle(RobotMode.id, null);
+      globalThis.location.reload();
+    } catch (error) {
+      console.error(error);
+      showToast(`Could not start fresh: ${error.message}`, "error", 8e3);
+      if (button) button.disabled = false;
+    }
+  });
+  function beginExplicitWorkspaceReplacement() {
+    const prior = { error: workspaceLastError };
+    workspaceRestoreBlocked = false;
+    workspaceAutosaveEnabled = true;
+    workspaceLastError = null;
+    setLocalSaveStatus("saving");
+    setEditorLocked(LiveSync.isActive());
+    return prior;
+  }
+  function reinstateRestoreBlock(prior) {
+    workspaceRestoreBlocked = true;
+    workspaceAutosaveEnabled = false;
+    workspaceLastError = prior?.error || new Error("The locally saved workspace could not be restored");
+    setLocalSaveStatus("error", workspaceLastError);
+    setEditorLocked(true);
+  }
   function markDocumentDirty(dirty) {
     documentDirty = Boolean(dirty);
     renderSaveStatus();
@@ -33534,8 +33571,10 @@ move_frame("base", basePose, existingBaseParent)`;
     appEl.dataset.editorLocked = String(editorLocked);
     document.body.classList.toggle("editor-locked", editorLocked);
     document.querySelectorAll("[data-editor-mutation]").forEach((control) => {
-      if ("disabled" in control) control.disabled = editorLocked;
-      control.setAttribute("aria-disabled", String(editorLocked));
+      const recoveryAction = workspaceRestoreBlocked && ["load-project-btn", "import-motion-btn"].includes(control.id);
+      const disabled = editorLocked && !recoveryAction;
+      if ("disabled" in control) control.disabled = disabled;
+      control.setAttribute("aria-disabled", String(disabled));
     });
     refreshHistoryButtons();
   }
@@ -34367,11 +34406,18 @@ move_frame("base", basePose, existingBaseParent)`;
       note.textContent = `${normalizationCount} moveJ command${normalizationCount === 1 ? "" : "s"} will be converted to the constrained minimum time.`;
       importReviewSummary.appendChild(note);
     }
-    if (parsed.initialPose) {
-      const appendChoice = document.querySelector('input[name="import-mode"][value="append"]');
-      const replaceChoice = document.querySelector('input[name="import-mode"][value="replace"]');
+    const appendChoice = document.querySelector('input[name="import-mode"][value="append"]');
+    const replaceChoice = document.querySelector('input[name="import-mode"][value="replace"]');
+    if (appendChoice) appendChoice.disabled = workspaceRestoreBlocked;
+    if (workspaceRestoreBlocked || parsed.initialPose) {
       if (replaceChoice) replaceChoice.checked = true;
       if (appendChoice) appendChoice.checked = false;
+    }
+    if (workspaceRestoreBlocked) {
+      const note = document.createElement("p");
+      note.className = "import-note";
+      note.textContent = "Importing will safely replace the local workspace that could not be restored.";
+      importReviewSummary.appendChild(note);
     }
     if (typeof importReviewDialog.showModal === "function") importReviewDialog.showModal();
     else importReviewDialog.setAttribute("open", "");
@@ -34394,13 +34440,27 @@ move_frame("base", basePose, existingBaseParent)`;
   });
   document.getElementById("import-review-cancel-btn").addEventListener("click", closeImportReview);
   document.getElementById("import-review-confirm-btn").addEventListener("click", () => {
-    if (!pendingMotionImport || editorLocked) return;
+    if (!pendingMotionImport || editorLocked && !workspaceRestoreBlocked) return;
     const { parsed } = pendingMotionImport;
-    const mode = document.querySelector('input[name="import-mode"]:checked')?.value || "append";
+    const recovering = workspaceRestoreBlocked;
+    const prior = recovering ? beginExplicitWorkspaceReplacement() : null;
+    const mode = recovering ? "replace" : document.querySelector('input[name="import-mode"]:checked')?.value || "append";
     const replacing = mode === "replace";
-    const count = importBlocks(parsed.blocks, { append: !replacing, initialPose: replacing ? parsed.initialPose : null });
+    let count;
+    try {
+      count = importBlocks(parsed.blocks, { append: !replacing, initialPose: replacing ? parsed.initialPose : null });
+    } catch (error) {
+      if (recovering) reinstateRestoreBlock(prior);
+      console.error(error);
+      showToast(`Import rejected: ${error.message}`, "error", 7e3);
+      return;
+    }
     const converted = parsed.normalizations.length;
     closeImportReview();
+    if (recovering) {
+      forgetActiveProjectFileHandle();
+      void persistWorkspaceNow();
+    }
     showToast(
       `Imported ${count} block${count === 1 ? "" : "s"}${converted ? `; ${converted} moveJ command${converted === 1 ? " was" : "s were"} set to constrained minimum time` : ""}`,
       converted ? "warn" : "success",
@@ -34843,6 +34903,7 @@ move_frame("base", basePose, existingBaseParent)`;
   document.getElementById("save-project-as-btn").addEventListener("click", smartSaveProjectAs);
   async function openPortableProjectFile(file, handle = null) {
     showToast("Opening project...", "info");
+    let recoveryPrior = null;
     try {
       const lower = file.name.toLowerCase();
       if (lower.endsWith(".lua") || lower.endsWith(".script") || lower.endsWith(".urscript")) {
@@ -34859,7 +34920,7 @@ move_frame("base", basePose, existingBaseParent)`;
       }
       const data = normalizedProjectFile(parsed, file.name);
       if (data.robotModel !== RobotMode.id) {
-        const saved = await flushWorkspaceAutosave();
+        const saved = workspaceRestoreBlocked ? true : await flushWorkspaceAutosave();
         if (!saved) throw new Error("The current workspace could not be saved before switching robot modes");
         const remembered2 = await associateProjectFileHandle(data.robotModel, handle);
         if (handle && !remembered2) showToast("Project opened, but Chrome could not remember its file handle", "warn");
@@ -34870,12 +34931,14 @@ move_frame("base", basePose, existingBaseParent)`;
         globalThis.location.href = url.href;
         return;
       }
+      if (workspaceRestoreBlocked) recoveryPrior = beginExplicitWorkspaceReplacement();
       await applyProjectPayload(data, { audioKind: "portable", announce: true });
       const remembered = await associateProjectFileHandle(RobotMode.id, handle);
       if (handle && !remembered) showToast("Project opened, but Chrome could not remember its file handle", "warn");
       workspaceMutationRevision += 1;
       await persistWorkspaceNow();
     } catch (error) {
+      if (recoveryPrior) reinstateRestoreBlock(recoveryPrior);
       console.error(error);
       showToast(`Open failed: ${error.message}`, "error");
     }
