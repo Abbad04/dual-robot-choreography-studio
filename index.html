@@ -130,6 +130,7 @@ button:disabled,input:disabled{opacity:.42;cursor:not-allowed}
 .toolbar-btn,.transport-btn,.tl-btn{
   min-height:34px;
   padding:6px 10px;
+  white-space:nowrap;
   color:var(--text-soft);
   background:transparent;
   border:1px solid transparent;
@@ -142,6 +143,8 @@ button:disabled,input:disabled{opacity:.42;cursor:not-allowed}
 }
 .toolbar-btn-primary{color:#061014;background:var(--cyan);border-color:var(--cyan);font-weight:750}
 .toolbar-btn-primary:hover{color:#061014;background:#70e5f4;border-color:#70e5f4}
+.autosave-retry{color:var(--amber);border-color:color-mix(in srgb,var(--amber) 45%,transparent)}
+.autosave-retry:hover{color:#071014;background:var(--amber);border-color:var(--amber)}
 .toolbar-divider{width:1px;height:24px;background:var(--border);margin:0 4px}
 .export-menu{display:flex;gap:4px}
 
@@ -612,7 +615,9 @@ body.editor-locked #tl-open-btn{opacity:.48}
       <span class="toolbar-divider" aria-hidden="true"></span>
       <button class="toolbar-btn" id="load-project-btn" type="button" data-editor-mutation>Open</button>
       <button class="toolbar-btn" id="save-project-btn" type="button" data-editor-mutation>Save</button>
+      <button class="toolbar-btn" id="save-project-as-btn" type="button" title="Choose a new project file" data-editor-mutation>Save As</button>
       <span id="save-badge" role="status">Saved</span>
+      <button class="toolbar-btn autosave-retry" id="retry-autosave-btn" type="button" hidden>Retry autosave</button>
       <input type="file" id="load-project-inp" accept=".ur20proj,.fr5proj,.json" class="visually-hidden">
       <button class="toolbar-btn" id="import-motion-btn" type="button" data-editor-mutation>Import</button>
       <input type="file" id="import-motion-inp" accept=".script,.urscript,.urpx,.lua,application/json,text/plain" class="visually-hidden">
@@ -32169,7 +32174,7 @@ move_frame("base", basePose, existingBaseParent)`;
     return { splitTopLevel, scanCalls, parseURScript, parseURPX, parseFairinoLua, parseFile };
   })();
   globalThis.UR20MoveJImport = MoveJImport;
-  var AudioEngine = /* @__PURE__ */ (function() {
+  var AudioEngine = (function() {
     let ws = null;
     let waveContainerEl = null;
     let looping = false;
@@ -32181,6 +32186,21 @@ move_frame("base", basePose, existingBaseParent)`;
     let virtualEndTime = Infinity;
     let lastAudioBlob = null;
     let lastAudioFileName = null;
+    let lastAudioPortableSave = null;
+    let lastAudioPortableSavePromise = Promise.resolve(null);
+    function encodeAudioForPortableSave(blob, fileName) {
+      if (!blob) return Promise.resolve(null);
+      return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve({
+          fileName: fileName || blob.name || "audio",
+          mimeType: blob.type || "audio/mpeg",
+          dataBase64: String(reader.result || "").split(",")[1] || ""
+        });
+        reader.onerror = () => reject(new Error("Could not encode audio for saving"));
+        reader.readAsDataURL(blob);
+      });
+    }
     function createInstance() {
       const inst = w.create({
         container: waveContainerEl,
@@ -32219,6 +32239,15 @@ move_frame("base", basePose, existingBaseParent)`;
       virtualPlaying = false;
       lastAudioBlob = file;
       lastAudioFileName = file.name;
+      lastAudioPortableSave = null;
+      const encodedFor = file;
+      lastAudioPortableSavePromise = encodeAudioForPortableSave(file, file.name).then((data) => {
+        if (lastAudioBlob === encodedFor) lastAudioPortableSave = data;
+        return data;
+      }).catch((error) => {
+        console.warn("Portable audio preparation was deferred:", error);
+        return null;
+      });
       return ws.loadBlob(file).then(() => ({ duration: ws.getDuration(), fileName: file.name }));
     }
     function removeAudio() {
@@ -32228,20 +32257,20 @@ move_frame("base", basePose, existingBaseParent)`;
       virtualPlaying = false;
       lastAudioBlob = null;
       lastAudioFileName = null;
+      lastAudioPortableSave = null;
+      lastAudioPortableSavePromise = Promise.resolve(null);
     }
-    function getAudioForSave() {
+    async function getAudioForSave() {
       if (!lastAudioBlob) return Promise.resolve(null);
-      return new Promise((resolve, reject) => {
-        const reader = new FileReader();
-        reader.onload = () => resolve({
-          fileName: lastAudioFileName,
-          mimeType: lastAudioBlob.type || "audio/mpeg",
-          dataBase64: reader.result.split(",")[1]
-          // strip the "data:...;base64," prefix
-        });
-        reader.onerror = () => reject(new Error("Could not encode audio for saving"));
-        reader.readAsDataURL(lastAudioBlob);
-      });
+      if (lastAudioPortableSave) return lastAudioPortableSave;
+      const prepared = await lastAudioPortableSavePromise;
+      if (prepared) return prepared;
+      const blob = lastAudioBlob;
+      const data = await encodeAudioForPortableSave(blob, lastAudioFileName);
+      if (lastAudioBlob === blob) {
+        lastAudioPortableSave = data;
+      }
+      return data;
     }
     function getAudioForDeviceSave() {
       if (!lastAudioBlob) return null;
@@ -33215,7 +33244,8 @@ move_frame("base", basePose, existingBaseParent)`;
     const DB_NAME = "dual-robot-choreography-studio";
     const DB_VERSION = 1;
     const STORE = "workspaces";
-    const SCHEMA = 1;
+    const SCHEMA = 2;
+    const LEGACY_SCHEMA = 1;
     let dbPromise = null;
     function requestResult(request) {
       return new Promise((resolve, reject) => {
@@ -33279,11 +33309,61 @@ move_frame("base", basePose, existingBaseParent)`;
       transaction.objectStore(STORE).delete(id);
       await transactionDone(transaction);
     }
+    async function encodeProjectData(projectData) {
+      const source = new Blob([JSON.stringify(projectData)], { type: "application/json" });
+      if (typeof CompressionStream !== "function") {
+        return { projectCodec: "json", projectBlob: source, projectBytes: source.size };
+      }
+      const stream = source.stream().pipeThrough(new CompressionStream("gzip"));
+      const projectBlob = await new Response(stream).blob();
+      return { projectCodec: "json-gzip", projectBlob, projectBytes: projectBlob.size };
+    }
+    async function decodeProjectData(record) {
+      if (record.projectData && typeof record.projectData === "object") return record.projectData;
+      if (!(record.projectBlob instanceof Blob)) throw new Error("The locally saved choreography data is missing");
+      let stream = record.projectBlob.stream();
+      if (record.projectCodec === "json-gzip") {
+        if (typeof DecompressionStream !== "function") throw new Error("This browser cannot decompress the locally saved choreography");
+        stream = stream.pipeThrough(new DecompressionStream("gzip"));
+      } else if (record.projectCodec !== "json") {
+        throw new Error(`Unsupported local workspace codec ${record.projectCodec || "unknown"}`);
+      }
+      const text = await new Response(stream).text();
+      try {
+        return JSON.parse(text);
+      } catch (error) {
+        throw new Error(`The locally saved choreography JSON is damaged: ${error.message}`);
+      }
+    }
     async function loadWorkspace(robotId) {
-      return getById(workspaceId(robotId));
+      const record = await getById(workspaceId(robotId));
+      if (!record) return null;
+      const schema = Number(record.storageSchema || LEGACY_SCHEMA);
+      if (schema !== LEGACY_SCHEMA && schema !== SCHEMA) throw new Error(`Unsupported local workspace schema ${schema}`);
+      const projectData = await decodeProjectData(record);
+      return { ...record, storageSchema: SCHEMA, projectData, migratedFromLegacy: schema === LEGACY_SCHEMA || Boolean(record.projectData) };
     }
     async function saveWorkspace(record) {
-      return put({ ...record, id: workspaceId(record.robotModel), storageSchema: SCHEMA });
+      const { projectData, ...metadata } = record;
+      const encoded = await encodeProjectData(projectData);
+      await put({ ...metadata, ...encoded, id: workspaceId(record.robotModel), storageSchema: SCHEMA });
+      return { projectBytes: encoded.projectBytes, codec: encoded.projectCodec };
+    }
+    const fileHandleId = (robotId) => `file-handle:${robotId}`;
+    async function loadProjectFileHandle(robotId) {
+      const record = await getById(fileHandleId(robotId));
+      return record?.kind === "project-file-handle" ? record.handle || null : null;
+    }
+    async function saveProjectFileHandle(robotId, handle) {
+      if (!handle) return remove(fileHandleId(robotId));
+      return put({
+        id: fileHandleId(robotId),
+        kind: "project-file-handle",
+        storageSchema: SCHEMA,
+        robotModel: robotId,
+        updatedAt: (/* @__PURE__ */ new Date()).toISOString(),
+        handle
+      });
     }
     async function stagePortableProject(robotId, payload) {
       const token = globalThis.crypto?.randomUUID?.() || `${Date.now()}-${Math.random().toString(16).slice(2)}`;
@@ -33304,14 +33384,32 @@ move_frame("base", basePose, existingBaseParent)`;
       if (!record || record.kind !== "pending-portable-project" || record.robotModel !== robotId) return null;
       return record.payload;
     }
-    return { SCHEMA, loadWorkspace, saveWorkspace, stagePortableProject, takePortableProject };
+    return {
+      SCHEMA,
+      loadWorkspace,
+      saveWorkspace,
+      loadProjectFileHandle,
+      saveProjectFileHandle,
+      stagePortableProject,
+      takePortableProject
+    };
   })();
   var workspaceAutosaveEnabled = false;
   var workspaceHydrating = false;
+  var workspaceRestoreBlocked = false;
   var workspaceAutosaveTimer = null;
   var workspaceMutationRevision = 0;
   var workspaceStoredRevision = 0;
-  var workspaceWriteChain = Promise.resolve(true);
+  var workspaceWritePromise = null;
+  var workspaceWriteRequested = false;
+  var workspaceLastError = null;
+  var workspaceWriteCount = 0;
+  function workspaceErrorMessage(error) {
+    if (!error) return "";
+    const name = String(error.name || "StorageError");
+    if (name === "QuotaExceededError") return "Browser storage is full. Free disk space, then choose Retry.";
+    return `${name}: ${error.message || "The browser could not store this project locally."}`;
+  }
   function renderSaveStatus() {
     const labels = {
       restoring: "Restoring locally...",
@@ -33320,15 +33418,24 @@ move_frame("base", basePose, existingBaseParent)`;
       error: "Autosave failed"
     };
     const label = labels[localSaveStatus] || labels.saved;
+    const errorMessage = workspaceErrorMessage(workspaceLastError);
     for (const element of [dirtyIndicatorEl, saveBadgeEl]) {
       if (!element) continue;
       element.textContent = label;
       element.dataset.localSaveStatus = localSaveStatus;
       element.classList.toggle("is-dirty", localSaveStatus === "saving" || localSaveStatus === "error");
-      element.title = localSaveStatus === "error" ? "Your current work remains open, but this browser could not save it locally. Download a project backup." : "The latest choreography is stored automatically in this browser on this device.";
+      element.title = localSaveStatus === "error" ? `${errorMessage} Your current work is still open; save a project file before closing.` : "The latest choreography is stored automatically in this browser on this device.";
+    }
+    const retry = document.getElementById("retry-autosave-btn");
+    if (retry) {
+      retry.hidden = localSaveStatus !== "error";
+      retry.textContent = workspaceRestoreBlocked ? "Retry restore" : "Retry autosave";
+      retry.title = errorMessage || "Retry device autosave";
     }
   }
-  function setLocalSaveStatus(status) {
+  function setLocalSaveStatus(status, error = null) {
+    if (error) workspaceLastError = error;
+    if (status === "saved") workspaceLastError = null;
     localSaveStatus = status;
     renderSaveStatus();
   }
@@ -33350,53 +33457,69 @@ move_frame("base", basePose, existingBaseParent)`;
     };
   }
   async function persistWorkspaceNow() {
+    if (workspaceRestoreBlocked) return false;
     if (!workspaceAutosaveEnabled || workspaceHydrating) return true;
     if (workspaceAutosaveTimer) {
       clearTimeout(workspaceAutosaveTimer);
       workspaceAutosaveTimer = null;
     }
-    const record = createWorkspaceRecord();
-    const revision = record.revision;
+    workspaceWriteRequested = true;
     setLocalSaveStatus("saving");
-    const write = () => WorkspacePersistence.saveWorkspace(record).then(() => true);
-    workspaceWriteChain = workspaceWriteChain.catch(() => true).then(write);
-    try {
-      await workspaceWriteChain;
-      workspaceStoredRevision = Math.max(workspaceStoredRevision, revision);
-      if (revision === workspaceMutationRevision && !workspaceAutosaveTimer) {
-        documentDirty = false;
-        setLocalSaveStatus("saved");
-      }
-      if (navigator.storage?.persist) void navigator.storage.persist().catch(() => {
+    if (!workspaceWritePromise) {
+      workspaceWritePromise = (async () => {
+        while (workspaceWriteRequested) {
+          workspaceWriteRequested = false;
+          const record = createWorkspaceRecord();
+          const revision = record.revision;
+          try {
+            await WorkspacePersistence.saveWorkspace(record);
+            workspaceWriteCount += 1;
+            workspaceStoredRevision = Math.max(workspaceStoredRevision, revision);
+            workspaceLastError = null;
+            if (workspaceMutationRevision > revision) workspaceWriteRequested = true;
+          } catch (error) {
+            workspaceLastError = error;
+            console.warn("Device autosave failed:", error);
+            setLocalSaveStatus("error", error);
+            showToast(`Autosave failed: ${workspaceErrorMessage(error)}`, "error", 8e3);
+            return false;
+          }
+        }
+        if (workspaceStoredRevision >= workspaceMutationRevision && !workspaceAutosaveTimer) {
+          documentDirty = false;
+          setLocalSaveStatus("saved");
+        }
+        if (navigator.storage?.persist) void navigator.storage.persist().catch(() => {
+        });
+        return true;
+      })().finally(() => {
+        workspaceWritePromise = null;
       });
-      return true;
-    } catch (error) {
-      console.warn("Device autosave failed:", error);
-      setLocalSaveStatus("error");
-      return false;
     }
+    return workspaceWritePromise;
   }
   function scheduleWorkspaceAutosave() {
-    if (!workspaceAutosaveEnabled || workspaceHydrating) return;
+    if (!workspaceAutosaveEnabled || workspaceHydrating || workspaceRestoreBlocked) return;
     workspaceMutationRevision += 1;
     setLocalSaveStatus("saving");
     if (workspaceAutosaveTimer) clearTimeout(workspaceAutosaveTimer);
     workspaceAutosaveTimer = setTimeout(() => {
       void persistWorkspaceNow();
-    }, 0);
+    }, 750);
   }
   async function flushWorkspaceAutosave() {
+    if (workspaceRestoreBlocked) return false;
     if (!workspaceAutosaveEnabled) return localSaveStatus !== "error";
-    if (workspaceAutosaveTimer) return persistWorkspaceNow();
-    try {
-      await workspaceWriteChain;
-      return localSaveStatus !== "error";
-    } catch (error) {
-      console.warn("Device autosave flush failed:", error);
-      setLocalSaveStatus("error");
-      return false;
+    if (workspaceAutosaveTimer || workspaceStoredRevision < workspaceMutationRevision || workspaceLastError) {
+      return persistWorkspaceNow();
     }
+    if (workspaceWritePromise) return workspaceWritePromise;
+    return true;
   }
+  document.getElementById("retry-autosave-btn")?.addEventListener("click", () => {
+    if (workspaceRestoreBlocked) globalThis.location.reload();
+    else void persistWorkspaceNow();
+  });
   function markDocumentDirty(dirty) {
     documentDirty = Boolean(dirty);
     renderSaveStatus();
@@ -33407,7 +33530,7 @@ move_frame("base", basePose, existingBaseParent)`;
     if (redoButtonEl) redoButtonEl.disabled = editorLocked || !canRedo();
   }
   function setEditorLocked(locked) {
-    editorLocked = Boolean(locked) || workspaceHydrating;
+    editorLocked = Boolean(locked) || workspaceHydrating || workspaceRestoreBlocked;
     appEl.dataset.editorLocked = String(editorLocked);
     document.body.classList.toggle("editor-locked", editorLocked);
     document.querySelectorAll("[data-editor-mutation]").forEach((control) => {
@@ -34456,6 +34579,139 @@ move_frame("base", basePose, existingBaseParent)`;
     });
   }
   var portableSaveInFlight = false;
+  var activeProjectFileHandle = null;
+  var activeProjectFileName = null;
+  function projectPickerTypes() {
+    return [{
+      description: `${RobotMode.profile.displayName} choreography project`,
+      accept: { "application/json": [RobotMode.profile.projectExtension] }
+    }];
+  }
+  var openProjectPickerTypes = [{
+    description: "UR20 or FR5-WML choreography project",
+    accept: { "application/json": [".ur20proj", ".fr5proj"] }
+  }];
+  function hasFileSystemAccess() {
+    return globalThis.isSecureContext && typeof globalThis.showSaveFilePicker === "function";
+  }
+  function safeProjectFileName() {
+    const state = getState();
+    const base = String(state.project.name || RobotMode.profile.projectName || "Choreography").replace(/[<>:"/\\|?*\u0000-\u001F]/g, "_").trim() || "Choreography";
+    return base.endsWith(RobotMode.profile.projectExtension) ? base : base + RobotMode.profile.projectExtension;
+  }
+  function refreshPortableSaveUI() {
+    const save = document.getElementById("save-project-btn");
+    if (save) save.title = activeProjectFileName ? `Save changes to ${activeProjectFileName}` : "Choose a project file, then save changes to it";
+  }
+  function forgetActiveProjectFileHandle() {
+    activeProjectFileHandle = null;
+    activeProjectFileName = null;
+    refreshPortableSaveUI();
+    void WorkspacePersistence.saveProjectFileHandle(RobotMode.id, null).catch((error) => {
+      console.warn("Could not clear the remembered project file:", error);
+    });
+  }
+  async function associateProjectFileHandle(robotId, handle) {
+    if (robotId === RobotMode.id) {
+      activeProjectFileHandle = handle || null;
+      activeProjectFileName = handle?.name || null;
+      refreshPortableSaveUI();
+    }
+    try {
+      await WorkspacePersistence.saveProjectFileHandle(robotId, handle || null);
+      return true;
+    } catch (error) {
+      console.warn("Could not remember the project file handle:", error);
+      return false;
+    }
+  }
+  async function preparePortableProject() {
+    const state = getState();
+    const audioData = await audio.getAudioForSave();
+    const json = JSON.stringify({
+      formatVersion: 3,
+      robotModel: RobotMode.id,
+      engine: { profileId: PROFILE.id, fingerprint: PROFILE.fingerprint, controllerPeriod: PROFILE.controllerPeriod },
+      savedAt: (/* @__PURE__ */ new Date()).toISOString(),
+      ...exportProjectData(),
+      audio: audioData
+    });
+    if (!json || json.length < 2) throw new Error("Project serialization produced no data");
+    const blob = new Blob([json], { type: "application/json" });
+    if (!blob.size) throw new Error("Project serialization produced an empty file");
+    return { blob, fileName: safeProjectFileName() };
+  }
+  async function ensureWritablePermission(handle) {
+    if (!handle?.queryPermission) return true;
+    let permission = await handle.queryPermission({ mode: "readwrite" });
+    if (permission === "granted") return true;
+    if (permission === "prompt" && handle.requestPermission) {
+      permission = await handle.requestPermission({ mode: "readwrite" });
+    }
+    return permission === "granted";
+  }
+  function validateProjectHandleName(handle) {
+    const name = String(handle?.name || "").toLowerCase();
+    const extension = RobotMode.profile.projectExtension.toLowerCase();
+    if (name && !name.endsWith(extension)) {
+      throw new Error(`Choose a ${extension} file for ${RobotMode.profile.displayName}`);
+    }
+  }
+  async function acquireProjectFileHandle(forcePicker) {
+    let handle = forcePicker ? null : activeProjectFileHandle;
+    if (handle) {
+      try {
+        if (!await ensureWritablePermission(handle)) {
+          forgetActiveProjectFileHandle();
+          handle = null;
+        }
+      } catch (error) {
+        console.warn("Remembered project file is no longer writable:", error);
+        forgetActiveProjectFileHandle();
+        handle = null;
+      }
+    }
+    if (!handle) {
+      handle = await globalThis.showSaveFilePicker({
+        suggestedName: safeProjectFileName(),
+        types: projectPickerTypes(),
+        excludeAcceptAllOption: false
+      });
+    }
+    validateProjectHandleName(handle);
+    return handle;
+  }
+  async function writePortableProject(handle, blob) {
+    let writable = null;
+    let closed = false;
+    try {
+      writable = await handle.createWritable({ keepExistingData: false });
+      await writable.write(blob);
+      await writable.close();
+      closed = true;
+    } catch (error) {
+      if (writable && !closed && typeof writable.abort === "function") {
+        try {
+          await writable.abort();
+        } catch (_abortError) {
+        }
+      }
+      throw error;
+    }
+    const file = await handle.getFile();
+    if (!file.size || file.size !== blob.size) {
+      throw new Error(`File verification failed: expected ${blob.size} bytes, found ${file.size}`);
+    }
+    return file;
+  }
+  function downloadPortableProject(blob, fileName) {
+    const url = URL.createObjectURL(blob);
+    const anchor = document.createElement("a");
+    anchor.href = url;
+    anchor.download = fileName;
+    anchor.click();
+    setTimeout(() => URL.revokeObjectURL(url), 6e4);
+  }
   function normalizedProjectFile(data, fileName = "") {
     if (!data || typeof data !== "object" || Array.isArray(data)) throw new Error("The selected file is not a project object");
     const version = data.formatVersion == null ? 1 : Number(data.formatVersion);
@@ -34532,8 +34788,9 @@ move_frame("base", basePose, existingBaseParent)`;
     }
     return { revalidated, audioWarning };
   }
-  async function smartSaveProject() {
+  async function smartSaveProject(options = {}) {
     if (portableSaveInFlight) return;
+    const forcePicker = Boolean(options && options.forcePicker);
     const state = getState();
     if (!state.waypoints.length && !audio.hasAudio()) {
       showToast("Nothing to save yet", "warn");
@@ -34541,44 +34798,50 @@ move_frame("base", basePose, existingBaseParent)`;
     }
     portableSaveInFlight = true;
     const button = document.getElementById("save-project-btn");
+    const saveAsButton = document.getElementById("save-project-as-btn");
     if (button) button.disabled = true;
-    showToast("Preparing project backup...", "info");
+    if (saveAsButton) saveAsButton.disabled = true;
+    showToast("Preparing project file...", "info");
+    let handle = null;
+    let writeAttempted = false;
     try {
-      const audioData = await audio.getAudioForSave();
-      const json = JSON.stringify({
-        formatVersion: 3,
-        robotModel: RobotMode.id,
-        engine: { profileId: PROFILE.id, fingerprint: PROFILE.fingerprint, controllerPeriod: PROFILE.controllerPeriod },
-        savedAt: (/* @__PURE__ */ new Date()).toISOString(),
-        ...exportProjectData(),
-        audio: audioData
-      });
-      if (!json || json.length < 2) throw new Error("Project serialization produced no data");
-      const blob = new Blob([json], { type: "application/json" });
-      if (!blob.size) throw new Error("Project serialization produced an empty file");
-      const url = URL.createObjectURL(blob);
-      const anchor = document.createElement("a");
-      anchor.href = url;
-      anchor.download = (state.project.name || RobotMode.profile.projectName) + RobotMode.profile.projectExtension;
-      anchor.click();
-      setTimeout(() => URL.revokeObjectURL(url), 6e4);
-      showToast("Project backup downloaded", "success");
+      if (hasFileSystemAccess()) handle = await acquireProjectFileHandle(forcePicker);
+      const prepared = await preparePortableProject();
+      if (handle) {
+        writeAttempted = true;
+        await writePortableProject(handle, prepared.blob);
+        const remembered = await associateProjectFileHandle(RobotMode.id, handle);
+        showToast(
+          remembered ? `Saved to ${handle.name}` : `Saved to ${handle.name}; Chrome could not remember the file after restart`,
+          remembered ? "success" : "warn",
+          6e3
+        );
+      } else {
+        downloadPortableProject(prepared.blob, prepared.fileName);
+        showToast("Project downloaded. Chrome or Edge can remember and overwrite the same file.", "success", 6e3);
+      }
       markDocumentDirty(false);
       await flushWorkspaceAutosave();
     } catch (error) {
+      if (error?.name === "AbortError") return;
+      if (handle && writeAttempted) {
+        await associateProjectFileHandle(RobotMode.id, null);
+        error = new Error(`${error.message}. The file association was cleared; choose Save again to select a writable file.`, { cause: error });
+      }
       console.error(error);
       showToast(`Save failed: ${error.message}`, "error");
     } finally {
       portableSaveInFlight = false;
       if (button) button.disabled = false;
+      if (saveAsButton) saveAsButton.disabled = false;
     }
   }
+  function smartSaveProjectAs() {
+    return smartSaveProject({ forcePicker: true });
+  }
   document.getElementById("save-project-btn").addEventListener("click", smartSaveProject);
-  document.getElementById("load-project-btn").addEventListener("click", () => document.getElementById("load-project-inp").click());
-  document.getElementById("load-project-inp").addEventListener("change", async (e2) => {
-    const file = e2.target.files[0];
-    e2.target.value = "";
-    if (!file) return;
+  document.getElementById("save-project-as-btn").addEventListener("click", smartSaveProjectAs);
+  async function openPortableProjectFile(file, handle = null) {
     showToast("Opening project...", "info");
     try {
       const lower = file.name.toLowerCase();
@@ -34598,6 +34861,8 @@ move_frame("base", basePose, existingBaseParent)`;
       if (data.robotModel !== RobotMode.id) {
         const saved = await flushWorkspaceAutosave();
         if (!saved) throw new Error("The current workspace could not be saved before switching robot modes");
+        const remembered2 = await associateProjectFileHandle(data.robotModel, handle);
+        if (handle && !remembered2) showToast("Project opened, but Chrome could not remember its file handle", "warn");
         const token = await WorkspacePersistence.stagePortableProject(data.robotModel, data);
         const url = new URL(globalThis.location.href);
         url.searchParams.set("robot", data.robotModel);
@@ -34606,14 +34871,37 @@ move_frame("base", basePose, existingBaseParent)`;
         return;
       }
       await applyProjectPayload(data, { audioKind: "portable", announce: true });
+      const remembered = await associateProjectFileHandle(RobotMode.id, handle);
+      if (handle && !remembered) showToast("Project opened, but Chrome could not remember its file handle", "warn");
       workspaceMutationRevision += 1;
       await persistWorkspaceNow();
     } catch (error) {
       console.error(error);
       showToast(`Open failed: ${error.message}`, "error");
     }
+  }
+  document.getElementById("load-project-btn").addEventListener("click", async () => {
+    if (typeof globalThis.showOpenFilePicker !== "function" || !globalThis.isSecureContext) {
+      document.getElementById("load-project-inp").click();
+      return;
+    }
+    try {
+      const [handle] = await globalThis.showOpenFilePicker({ multiple: false, types: openProjectPickerTypes, excludeAcceptAllOption: false });
+      if (handle) await openPortableProjectFile(await handle.getFile(), handle);
+    } catch (error) {
+      if (error?.name !== "AbortError") {
+        console.error(error);
+        showToast(`Open failed: ${error.message}`, "error");
+      }
+    }
+  });
+  document.getElementById("load-project-inp").addEventListener("change", async (e2) => {
+    const file = e2.target.files[0];
+    e2.target.value = "";
+    if (file) await openPortableProjectFile(file, null);
   });
   async function restoreWorkspaceOnBoot() {
+    workspaceRestoreBlocked = false;
     setLocalSaveStatus("restoring");
     workspaceHydrating = true;
     setEditorLocked(false);
@@ -34623,6 +34911,16 @@ move_frame("base", basePose, existingBaseParent)`;
     let restored = false;
     let needsResave = false;
     try {
+      try {
+        activeProjectFileHandle = await WorkspacePersistence.loadProjectFileHandle(RobotMode.id);
+        activeProjectFileName = activeProjectFileHandle?.name || null;
+        refreshPortableSaveUI();
+      } catch (error) {
+        activeProjectFileHandle = null;
+        activeProjectFileName = null;
+        refreshPortableSaveUI();
+        console.warn("Could not restore the remembered project file:", error);
+      }
       if (pendingToken) {
         const pending = await WorkspacePersistence.takePortableProject(pendingToken, RobotMode.id);
         if (!pending) throw new Error("The project handoff expired before it could be opened");
@@ -34649,10 +34947,11 @@ move_frame("base", basePose, existingBaseParent)`;
           );
           const result = await applyProjectPayload(data, { audioKind: "device", announce: true, localRestore: true });
           restored = true;
-          needsResave = result.revalidated;
+          needsResave = result.revalidated || Boolean(storedRecord.migratedFromLegacy);
         }
       }
       workspaceHydrating = false;
+      workspaceRestoreBlocked = false;
       workspaceAutosaveEnabled = true;
       setLocalSaveStatus("saved");
       if (needsResave) {
@@ -34663,9 +34962,10 @@ move_frame("base", basePose, existingBaseParent)`;
     } catch (error) {
       console.warn("Local workspace restore failed:", error);
       workspaceHydrating = false;
-      workspaceAutosaveEnabled = true;
-      setLocalSaveStatus("error");
-      showToast(`Local workspace could not be restored; a clean ${RobotMode.profile.displayName} project is ready. ${error.message}`, "warn", 8e3);
+      workspaceRestoreBlocked = true;
+      workspaceAutosaveEnabled = false;
+      setLocalSaveStatus("error", error);
+      showToast(`Local workspace could not be restored. Editing is locked to protect the saved copy. ${error.message}`, "error", 1e4);
       return { restored: false, robotModel: RobotMode.id, error: error.message };
     } finally {
       workspaceHydrating = false;
@@ -34735,7 +35035,8 @@ move_frame("base", basePose, existingBaseParent)`;
     }
     if (mod && key === "s") {
       e2.preventDefault();
-      smartSaveProject();
+      if (e2.shiftKey) smartSaveProjectAs();
+      else smartSaveProject();
       return;
     }
     if (e2.code === "Space") {
@@ -34824,13 +35125,17 @@ move_frame("base", basePose, existingBaseParent)`;
     hasClipboard,
     renameWaypoint,
     smartSaveProject,
+    smartSaveProjectAs,
     buildFairinoLua,
     timingFloorForBlock,
     workspace: {
       ready: workspaceReadyPromise,
       flush: flushWorkspaceAutosave,
       status: () => localSaveStatus,
-      revision: () => workspaceStoredRevision
+      revision: () => workspaceStoredRevision,
+      error: () => workspaceErrorMessage(workspaceLastError),
+      writeCount: () => workspaceWriteCount,
+      fileName: () => activeProjectFileName
     }
   };
   window.__ur20 = window.__choreography;
