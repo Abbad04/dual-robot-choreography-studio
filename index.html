@@ -32243,6 +32243,26 @@ move_frame("base", basePose, existingBaseParent)`;
         reader.readAsDataURL(lastAudioBlob);
       });
     }
+    function getAudioForDeviceSave() {
+      if (!lastAudioBlob) return null;
+      return {
+        fileName: lastAudioFileName || lastAudioBlob.name || "audio",
+        mimeType: lastAudioBlob.type || "audio/mpeg",
+        blob: lastAudioBlob
+      };
+    }
+    function loadAudioFromDeviceSave(saved) {
+      if (!saved) return Promise.resolve(null);
+      if (!(saved.blob instanceof Blob)) {
+        const err = new Error("The locally saved audio blob is missing or damaged");
+        err.expectedFileName = saved.fileName || null;
+        return Promise.reject(err);
+      }
+      const file = new File([saved.blob], saved.fileName || "audio", {
+        type: saved.mimeType || saved.blob.type || "audio/mpeg"
+      });
+      return loadFile(file);
+    }
     function loadAudioFromSave(saved) {
       if (!saved) return Promise.resolve(null);
       if (!saved.dataBase64) {
@@ -32345,7 +32365,27 @@ move_frame("base", basePose, existingBaseParent)`;
       } catch (e2) {
       }
     }
-    return { initAudio, loadFile, removeAudio, getAudioForSave, loadAudioFromSave, play, pause, stop, seekTo, getCurrentTime, setLooping, getLooping, getIsPlaying, getDuration, hasAudio, setOnNaturalEnd, syncVisualScroll };
+    return {
+      initAudio,
+      loadFile,
+      removeAudio,
+      getAudioForSave,
+      loadAudioFromSave,
+      getAudioForDeviceSave,
+      loadAudioFromDeviceSave,
+      play,
+      pause,
+      stop,
+      seekTo,
+      getCurrentTime,
+      setLooping,
+      getLooping,
+      getIsPlaying,
+      getDuration,
+      hasAudio,
+      setOnNaturalEnd,
+      syncVisualScroll
+    };
   })();
   var LiveSync = (function() {
     const BASE = "http://127.0.0.1:8765/v1";
@@ -33067,9 +33107,14 @@ move_frame("base", basePose, existingBaseParent)`;
     document.querySelectorAll("[data-robot-mode]").forEach((button) => {
       const selected = button.dataset.robotMode === RobotMode.id;
       button.setAttribute("aria-pressed", String(selected));
-      button.addEventListener("click", () => {
+      button.addEventListener("click", async () => {
         if (selected) return;
-        if (typeof documentDirty !== "undefined" && documentDirty && !globalThis.confirm("Switch robot mode and discard unsaved changes?")) return;
+        button.disabled = true;
+        const saved = await flushWorkspaceAutosave();
+        if (!saved && documentDirty && !globalThis.confirm("Local autosave failed. Switch robot mode anyway?")) {
+          button.disabled = false;
+          return;
+        }
         const url = new URL(globalThis.location.href);
         url.searchParams.set("robot", button.dataset.robotMode);
         globalThis.location.href = url.href;
@@ -33107,7 +33152,7 @@ move_frame("base", basePose, existingBaseParent)`;
       waitInput.step = String(PROFILE.controllerPeriod);
     }
     const projectInput = document.getElementById("load-project-inp");
-    if (projectInput) projectInput.accept = `${robot.projectExtension},.json`;
+    if (projectInput) projectInput.accept = ".ur20proj,.fr5proj,.json,application/json";
     const primary = document.getElementById("export-urpx-btn");
     if (primary) primary.textContent = robot.primaryExport;
     const secondary = document.getElementById("export-script-btn");
@@ -33165,17 +33210,196 @@ move_frame("base", basePose, existingBaseParent)`;
   var redoButtonEl = document.getElementById("redo-btn");
   var editorLocked = false;
   var documentDirty = false;
+  var localSaveStatus = "restoring";
+  var WorkspacePersistence = /* @__PURE__ */ (function() {
+    const DB_NAME = "dual-robot-choreography-studio";
+    const DB_VERSION = 1;
+    const STORE = "workspaces";
+    const SCHEMA = 1;
+    let dbPromise = null;
+    function requestResult(request) {
+      return new Promise((resolve, reject) => {
+        request.onsuccess = () => resolve(request.result);
+        request.onerror = () => reject(request.error || new Error("IndexedDB request failed"));
+      });
+    }
+    function transactionDone(transaction) {
+      return new Promise((resolve, reject) => {
+        transaction.oncomplete = () => resolve();
+        transaction.onabort = () => reject(transaction.error || new Error("IndexedDB transaction was aborted"));
+        transaction.onerror = () => reject(transaction.error || new Error("IndexedDB transaction failed"));
+      });
+    }
+    function open() {
+      if (!("indexedDB" in globalThis)) return Promise.reject(new Error("This browser does not provide IndexedDB"));
+      if (dbPromise) return dbPromise;
+      dbPromise = new Promise((resolve, reject) => {
+        const request = indexedDB.open(DB_NAME, DB_VERSION);
+        request.onupgradeneeded = () => {
+          const db = request.result;
+          if (!db.objectStoreNames.contains(STORE)) db.createObjectStore(STORE, { keyPath: "id" });
+        };
+        request.onsuccess = () => {
+          const db = request.result;
+          db.onversionchange = () => {
+            db.close();
+            dbPromise = null;
+          };
+          resolve(db);
+        };
+        request.onerror = () => {
+          dbPromise = null;
+          reject(request.error || new Error("Could not open local workspace storage"));
+        };
+        request.onblocked = () => {
+          dbPromise = null;
+          reject(new Error("Local workspace storage is blocked by another tab"));
+        };
+      });
+      return dbPromise;
+    }
+    const workspaceId = (robotId) => `workspace:${robotId}`;
+    async function getById(id) {
+      const db = await open();
+      const transaction = db.transaction(STORE, "readonly");
+      const done = transactionDone(transaction);
+      const result = await requestResult(transaction.objectStore(STORE).get(id));
+      await done;
+      return result || null;
+    }
+    async function put(record) {
+      const db = await open();
+      const transaction = db.transaction(STORE, "readwrite");
+      transaction.objectStore(STORE).put(record);
+      await transactionDone(transaction);
+    }
+    async function remove(id) {
+      const db = await open();
+      const transaction = db.transaction(STORE, "readwrite");
+      transaction.objectStore(STORE).delete(id);
+      await transactionDone(transaction);
+    }
+    async function loadWorkspace(robotId) {
+      return getById(workspaceId(robotId));
+    }
+    async function saveWorkspace(record) {
+      return put({ ...record, id: workspaceId(record.robotModel), storageSchema: SCHEMA });
+    }
+    async function stagePortableProject(robotId, payload) {
+      const token = globalThis.crypto?.randomUUID?.() || `${Date.now()}-${Math.random().toString(16).slice(2)}`;
+      await put({
+        id: `pending:${token}`,
+        kind: "pending-portable-project",
+        storageSchema: SCHEMA,
+        robotModel: robotId,
+        createdAt: (/* @__PURE__ */ new Date()).toISOString(),
+        payload
+      });
+      return token;
+    }
+    async function takePortableProject(token, robotId) {
+      const id = `pending:${token}`;
+      const record = await getById(id);
+      if (record) await remove(id);
+      if (!record || record.kind !== "pending-portable-project" || record.robotModel !== robotId) return null;
+      return record.payload;
+    }
+    return { SCHEMA, loadWorkspace, saveWorkspace, stagePortableProject, takePortableProject };
+  })();
+  var workspaceAutosaveEnabled = false;
+  var workspaceHydrating = false;
+  var workspaceAutosaveTimer = null;
+  var workspaceMutationRevision = 0;
+  var workspaceStoredRevision = 0;
+  var workspaceWriteChain = Promise.resolve(true);
+  function renderSaveStatus() {
+    const labels = {
+      restoring: "Restoring locally...",
+      saving: "Saving locally...",
+      saved: "Saved on this device",
+      error: "Autosave failed"
+    };
+    const label = labels[localSaveStatus] || labels.saved;
+    for (const element of [dirtyIndicatorEl, saveBadgeEl]) {
+      if (!element) continue;
+      element.textContent = label;
+      element.dataset.localSaveStatus = localSaveStatus;
+      element.classList.toggle("is-dirty", localSaveStatus === "saving" || localSaveStatus === "error");
+      element.title = localSaveStatus === "error" ? "Your current work remains open, but this browser could not save it locally. Download a project backup." : "The latest choreography is stored automatically in this browser on this device.";
+    }
+  }
+  function setLocalSaveStatus(status) {
+    localSaveStatus = status;
+    renderSaveStatus();
+  }
+  function createWorkspaceRecord() {
+    const now = (/* @__PURE__ */ new Date()).toISOString();
+    return {
+      kind: "workspace",
+      storageSchema: WorkspacePersistence.SCHEMA,
+      robotModel: RobotMode.id,
+      revision: workspaceMutationRevision,
+      updatedAt: now,
+      projectData: {
+        formatVersion: 3,
+        engine: { profileId: PROFILE.id, fingerprint: PROFILE.fingerprint, controllerPeriod: PROFILE.controllerPeriod },
+        savedAt: now,
+        ...exportProjectData()
+      },
+      audio: audio.getAudioForDeviceSave()
+    };
+  }
+  async function persistWorkspaceNow() {
+    if (!workspaceAutosaveEnabled || workspaceHydrating) return true;
+    if (workspaceAutosaveTimer) {
+      clearTimeout(workspaceAutosaveTimer);
+      workspaceAutosaveTimer = null;
+    }
+    const record = createWorkspaceRecord();
+    const revision = record.revision;
+    setLocalSaveStatus("saving");
+    const write = () => WorkspacePersistence.saveWorkspace(record).then(() => true);
+    workspaceWriteChain = workspaceWriteChain.catch(() => true).then(write);
+    try {
+      await workspaceWriteChain;
+      workspaceStoredRevision = Math.max(workspaceStoredRevision, revision);
+      if (revision === workspaceMutationRevision && !workspaceAutosaveTimer) {
+        documentDirty = false;
+        setLocalSaveStatus("saved");
+      }
+      if (navigator.storage?.persist) void navigator.storage.persist().catch(() => {
+      });
+      return true;
+    } catch (error) {
+      console.warn("Device autosave failed:", error);
+      setLocalSaveStatus("error");
+      return false;
+    }
+  }
+  function scheduleWorkspaceAutosave() {
+    if (!workspaceAutosaveEnabled || workspaceHydrating) return;
+    workspaceMutationRevision += 1;
+    setLocalSaveStatus("saving");
+    if (workspaceAutosaveTimer) clearTimeout(workspaceAutosaveTimer);
+    workspaceAutosaveTimer = setTimeout(() => {
+      void persistWorkspaceNow();
+    }, 0);
+  }
+  async function flushWorkspaceAutosave() {
+    if (!workspaceAutosaveEnabled) return localSaveStatus !== "error";
+    if (workspaceAutosaveTimer) return persistWorkspaceNow();
+    try {
+      await workspaceWriteChain;
+      return localSaveStatus !== "error";
+    } catch (error) {
+      console.warn("Device autosave flush failed:", error);
+      setLocalSaveStatus("error");
+      return false;
+    }
+  }
   function markDocumentDirty(dirty) {
     documentDirty = Boolean(dirty);
-    const label = documentDirty ? "Unsaved" : "Saved";
-    if (dirtyIndicatorEl) {
-      dirtyIndicatorEl.textContent = label;
-      dirtyIndicatorEl.classList.toggle("is-dirty", documentDirty);
-    }
-    if (saveBadgeEl) {
-      saveBadgeEl.textContent = label;
-      saveBadgeEl.classList.toggle("is-dirty", documentDirty);
-    }
+    renderSaveStatus();
     document.title = `${RobotMode.profile.displayName} Choreography`;
   }
   function refreshHistoryButtons() {
@@ -33183,7 +33407,7 @@ move_frame("base", basePose, existingBaseParent)`;
     if (redoButtonEl) redoButtonEl.disabled = editorLocked || !canRedo();
   }
   function setEditorLocked(locked) {
-    editorLocked = Boolean(locked);
+    editorLocked = Boolean(locked) || workspaceHydrating;
     appEl.dataset.editorLocked = String(editorLocked);
     document.body.classList.toggle("editor-locked", editorLocked);
     document.querySelectorAll("[data-editor-mutation]").forEach((control) => {
@@ -33568,8 +33792,9 @@ move_frame("base", basePose, existingBaseParent)`;
     if (!patch || ["waypoints", "select", "initialPose", "history", "project"].includes(patch.type)) {
       renderBlockInspector(state);
     }
-    if (patch && ["waypoints", "initialPose", "history", "project"].includes(patch.type)) {
+    if (patch && ["waypoints", "initialPose", "history", "project", "display"].includes(patch.type)) {
       markDocumentDirty(true);
+      scheduleWorkspaceAutosave();
     }
     if (state.selectedId && (patch?.type === "select" || patch?.type === "waypoints")) {
       activateInspectorTab("block");
@@ -33959,6 +34184,8 @@ move_frame("base", basePose, existingBaseParent)`;
       document.getElementById("tl-fname").textContent = fileName.length > 28 ? fileName.slice(0, 25) + "…" : fileName;
       document.getElementById("tl-remove-audio-btn").style.display = "";
       timeline.render(getState().waypoints, getState().selectedId, duration, getState().initialPose);
+      markDocumentDirty(true);
+      scheduleWorkspaceAutosave();
     } catch (err) {
       console.error(err);
       alert("Could not load that audio file: " + err.message);
@@ -33971,6 +34198,8 @@ move_frame("base", basePose, existingBaseParent)`;
     document.getElementById("tl-fname").textContent = "No audio";
     document.getElementById("tl-remove-audio-btn").style.display = "none";
     timeline.render(getState().waypoints, getState().selectedId, 0, getState().initialPose);
+    markDocumentDirty(true);
+    scheduleWorkspaceAutosave();
     showToast("Audio removed", "info");
   });
   var projNameInp = document.getElementById("proj-name-inp");
@@ -34030,6 +34259,9 @@ move_frame("base", basePose, existingBaseParent)`;
     e2.target.value = "";
     if (!file) return;
     try {
+      if (/\.(?:fr5proj|ur20proj)$/i.test(file.name)) {
+        throw new Error("This is an editable project backup. Use Open, not motion import.");
+      }
       const parsed = await MoveJImport.parseFile(file);
       openImportReview(parsed, file);
     } catch (err) {
@@ -34223,102 +34455,62 @@ move_frame("base", basePose, existingBaseParent)`;
       }
     });
   }
-  var savedFileHandle = null;
-  async function smartSaveProject() {
-    const state = getState();
-    if (!state.waypoints.length && !audio.hasAudio()) {
-      showToast("Nothing to save yet", "warn");
-      return;
-    }
-    const supportsFS = typeof window.showSaveFilePicker === "function";
-    if (supportsFS && !savedFileHandle) {
-      const pickerStart = performance.now();
-      try {
-        const picker = window.showSaveFilePicker({
-          suggestedName: (state.project.name || RobotMode.profile.projectName) + RobotMode.profile.projectExtension,
-          types: [{ description: `${RobotMode.profile.displayName} Project`, accept: { "application/json": [RobotMode.profile.projectExtension] } }]
-        });
-        const timeout = new Promise((_, rej) => setTimeout(() => rej(new Error("picker-timeout")), 1e4));
-        savedFileHandle = await Promise.race([picker, timeout]);
-      } catch (err) {
-        if (err.name === "AbortError" && performance.now() - pickerStart > 300) return;
-        savedFileHandle = null;
-      }
-    }
-    showToast("Saving…", "info");
-    let json;
-    try {
-      const audioData = await audio.getAudioForSave();
-      json = JSON.stringify({
-        formatVersion: 3,
-        robotModel: RobotMode.id,
-        engine: { profileId: PROFILE.id, fingerprint: PROFILE.fingerprint, controllerPeriod: PROFILE.controllerPeriod },
-        savedAt: (/* @__PURE__ */ new Date()).toISOString(),
-        ...exportProjectData(),
-        audio: audioData
-      });
-    } catch (err) {
-      console.error(err);
-      showToast("Save failed — see console", "error");
-      return;
-    }
-    if (savedFileHandle) {
-      try {
-        const writable = await savedFileHandle.createWritable();
-        await writable.write(json);
-        await writable.close();
-        showToast("Project saved", "success");
-        markDocumentDirty(false);
-        return;
-      } catch (err) {
-        console.error(err);
-        savedFileHandle = null;
-      }
-    }
-    const blob = new Blob([json], { type: "application/json" });
-    const a2 = document.createElement("a");
-    a2.href = URL.createObjectURL(blob);
-    a2.download = (state.project.name || RobotMode.profile.projectName) + RobotMode.profile.projectExtension;
-    a2.click();
-    showToast(supportsFS ? "Project saved" : "Project saved (downloaded)", "success");
-    markDocumentDirty(false);
+  var portableSaveInFlight = false;
+  function normalizedProjectFile(data, fileName = "") {
+    if (!data || typeof data !== "object" || Array.isArray(data)) throw new Error("The selected file is not a project object");
+    const version = data.formatVersion == null ? 1 : Number(data.formatVersion);
+    if (!Number.isInteger(version) || version < 1) throw new Error("The project format version is invalid");
+    if (version > 3) throw new Error(`This project uses newer format version ${version}; update the app before opening it`);
+    const lower = String(fileName).toLowerCase();
+    const extensionRobot = lower.endsWith(".fr5proj") ? "fr5" : lower.endsWith(".ur20proj") ? "ur20" : null;
+    const topRobot = data.robotModel || null;
+    const nestedRobot = data.project?.robotModel || null;
+    if (topRobot && nestedRobot && topRobot !== nestedRobot) throw new Error("The project contains conflicting robot model labels");
+    const robotModel = topRobot || nestedRobot || extensionRobot || "ur20";
+    if (!["ur20", "fr5"].includes(robotModel)) throw new Error(`Unsupported robot model: ${robotModel}`);
+    if (extensionRobot && extensionRobot !== robotModel) throw new Error(`The ${extensionRobot.toUpperCase()} filename does not match the embedded ${robotModel.toUpperCase()} project`);
+    return {
+      ...data,
+      formatVersion: version,
+      robotModel,
+      project: { ...data.project && typeof data.project === "object" ? data.project : {}, robotModel }
+    };
   }
-  document.getElementById("save-project-btn").addEventListener("click", smartSaveProject);
-  document.getElementById("load-project-btn").addEventListener("click", () => document.getElementById("load-project-inp").click());
-  document.getElementById("load-project-inp").addEventListener("change", async (e2) => {
-    const file = e2.target.files[0];
-    e2.target.value = "";
-    if (!file) return;
-    showToast("Loading…", "info");
+  function syncProjectControls() {
+    projNameInp.value = getState().project.name;
+    const d2 = getState().display;
+    document.getElementById("tog-frame").checked = Boolean(d2.showFrame);
+    document.getElementById("tog-path").checked = Boolean(d2.showPath);
+    document.getElementById("tog-wpm").checked = Boolean(d2.showWaypoints);
+    document.getElementById("tog-shadow").checked = Boolean(d2.shadows);
+  }
+  async function applyProjectPayload(data, { audioKind = "portable", announce = true, localRestore = false } = {}) {
+    const priorHydrating = workspaceHydrating;
+    workspaceHydrating = true;
+    setEditorLocked(false);
+    let revalidated = false;
+    let audioWarning = null;
     try {
-      const data = JSON.parse(await file.text());
-      const { revalidated } = restoreProjectData(data);
-      savedFileHandle = null;
-      projNameInp.value = getState().project.name;
-      const d2 = getState().display;
-      document.getElementById("tog-frame").checked = d2.showFrame;
-      document.getElementById("tog-path").checked = d2.showPath;
-      document.getElementById("tog-wpm").checked = d2.showWaypoints;
-      document.getElementById("tog-shadow").checked = d2.shadows;
+      ({ revalidated } = restoreProjectData(data));
+      syncProjectControls();
       const fnameEl = document.getElementById("tl-fname");
-      const loadedMsg = revalidated ? "Project loaded — some durations were too short for current kinematics and were corrected" : "Project loaded";
       if (data.audio) {
         try {
-          const { duration, fileName } = await audio.loadAudioFromSave(data.audio);
+          const loaded = audioKind === "device" ? await audio.loadAudioFromDeviceSave(data.audio) : await audio.loadAudioFromSave(data.audio);
+          const { duration, fileName } = loaded;
           setTimelineMeta({ audioFileName: fileName, audioDuration: duration });
           fnameEl.textContent = fileName.length > 28 ? fileName.slice(0, 25) + "…" : fileName;
           fnameEl.classList.remove("missing");
           document.getElementById("tl-remove-audio-btn").style.display = "";
-          showToast(loadedMsg, revalidated ? "warn" : "success");
-        } catch (audioErr) {
-          console.error(audioErr);
+        } catch (error) {
+          console.warn("Project audio restore failed:", error);
           audio.removeAudio();
           setTimelineMeta({ audioFileName: null, audioDuration: 0 });
-          const expected = audioErr.expectedFileName || data.audio.fileName;
-          fnameEl.textContent = expected ? `⚠ Please load: ${expected}` : "⚠ Audio missing";
+          const expected = error.expectedFileName || data.audio.fileName;
+          fnameEl.textContent = expected ? `Audio missing: ${expected}` : "Audio missing";
           fnameEl.classList.add("missing");
           document.getElementById("tl-remove-audio-btn").style.display = "none";
-          showToast("Project loaded — original audio file is missing", "warn");
+          audioWarning = "The choreography was restored, but its saved audio could not be loaded";
         }
       } else {
         audio.removeAudio();
@@ -34326,13 +34518,177 @@ move_frame("base", basePose, existingBaseParent)`;
         fnameEl.textContent = "No audio";
         fnameEl.classList.remove("missing");
         document.getElementById("tl-remove-audio-btn").style.display = "none";
-        showToast(loadedMsg, revalidated ? "warn" : "success");
+      }
+      setRobotPose(getState().initialPose);
+    } finally {
+      workspaceHydrating = priorHydrating;
+      setEditorLocked(LiveSync.isActive());
+    }
+    markDocumentDirty(false);
+    if (announce) {
+      if (audioWarning) showToast(audioWarning, "warn");
+      else if (revalidated) showToast(`${localRestore ? "Local workspace" : "Project"} restored and revalidated for the current robot profile`, "warn");
+      else showToast(localRestore ? `${RobotMode.profile.displayName} workspace restored from this device` : "Project opened", "success");
+    }
+    return { revalidated, audioWarning };
+  }
+  async function smartSaveProject() {
+    if (portableSaveInFlight) return;
+    const state = getState();
+    if (!state.waypoints.length && !audio.hasAudio()) {
+      showToast("Nothing to save yet", "warn");
+      return;
+    }
+    portableSaveInFlight = true;
+    const button = document.getElementById("save-project-btn");
+    if (button) button.disabled = true;
+    showToast("Preparing project backup...", "info");
+    try {
+      const audioData = await audio.getAudioForSave();
+      const json = JSON.stringify({
+        formatVersion: 3,
+        robotModel: RobotMode.id,
+        engine: { profileId: PROFILE.id, fingerprint: PROFILE.fingerprint, controllerPeriod: PROFILE.controllerPeriod },
+        savedAt: (/* @__PURE__ */ new Date()).toISOString(),
+        ...exportProjectData(),
+        audio: audioData
+      });
+      if (!json || json.length < 2) throw new Error("Project serialization produced no data");
+      const blob = new Blob([json], { type: "application/json" });
+      if (!blob.size) throw new Error("Project serialization produced an empty file");
+      const url = URL.createObjectURL(blob);
+      const anchor = document.createElement("a");
+      anchor.href = url;
+      anchor.download = (state.project.name || RobotMode.profile.projectName) + RobotMode.profile.projectExtension;
+      anchor.click();
+      setTimeout(() => URL.revokeObjectURL(url), 6e4);
+      showToast("Project backup downloaded", "success");
+      markDocumentDirty(false);
+      await flushWorkspaceAutosave();
+    } catch (error) {
+      console.error(error);
+      showToast(`Save failed: ${error.message}`, "error");
+    } finally {
+      portableSaveInFlight = false;
+      if (button) button.disabled = false;
+    }
+  }
+  document.getElementById("save-project-btn").addEventListener("click", smartSaveProject);
+  document.getElementById("load-project-btn").addEventListener("click", () => document.getElementById("load-project-inp").click());
+  document.getElementById("load-project-inp").addEventListener("change", async (e2) => {
+    const file = e2.target.files[0];
+    e2.target.value = "";
+    if (!file) return;
+    showToast("Opening project...", "info");
+    try {
+      const lower = file.name.toLowerCase();
+      if (lower.endsWith(".lua") || lower.endsWith(".script") || lower.endsWith(".urscript")) {
+        throw new Error(`Use ${RobotMode.isFR5 ? "Import Lua" : "Import Motion"} for executable robot programs; Open is for .fr5proj/.ur20proj project files`);
+      }
+      if (file.size === 0) throw new Error(`${file.name} is empty (0 bytes). Choose a nonempty project backup`);
+      const source = (await file.text()).replace(/^\uFEFF/, "");
+      if (!source.trim()) throw new Error(`${file.name} contains no project data`);
+      let parsed;
+      try {
+        parsed = JSON.parse(source);
+      } catch (error) {
+        throw new Error(`The project JSON is malformed: ${error.message}`);
+      }
+      const data = normalizedProjectFile(parsed, file.name);
+      if (data.robotModel !== RobotMode.id) {
+        const saved = await flushWorkspaceAutosave();
+        if (!saved) throw new Error("The current workspace could not be saved before switching robot modes");
+        const token = await WorkspacePersistence.stagePortableProject(data.robotModel, data);
+        const url = new URL(globalThis.location.href);
+        url.searchParams.set("robot", data.robotModel);
+        url.searchParams.set("openProject", token);
+        globalThis.location.href = url.href;
+        return;
+      }
+      await applyProjectPayload(data, { audioKind: "portable", announce: true });
+      workspaceMutationRevision += 1;
+      await persistWorkspaceNow();
+    } catch (error) {
+      console.error(error);
+      showToast(`Open failed: ${error.message}`, "error");
+    }
+  });
+  async function restoreWorkspaceOnBoot() {
+    setLocalSaveStatus("restoring");
+    workspaceHydrating = true;
+    setEditorLocked(false);
+    const url = new URL(globalThis.location.href);
+    const pendingToken = url.searchParams.get("openProject");
+    let storedRecord = null;
+    let restored = false;
+    let needsResave = false;
+    try {
+      if (pendingToken) {
+        const pending = await WorkspacePersistence.takePortableProject(pendingToken, RobotMode.id);
+        if (!pending) throw new Error("The project handoff expired before it could be opened");
+        const data = normalizedProjectFile(pending, RobotMode.profile.projectExtension);
+        if (data.robotModel !== RobotMode.id) throw new Error("The project handoff targets a different robot");
+        await applyProjectPayload(data, { audioKind: "portable", announce: true });
+        restored = true;
+        workspaceMutationRevision = 1;
+        needsResave = true;
+      } else {
+        storedRecord = await WorkspacePersistence.loadWorkspace(RobotMode.id);
+        if (storedRecord) {
+          if (storedRecord.storageSchema !== WorkspacePersistence.SCHEMA) {
+            throw new Error(`Unsupported local workspace schema ${storedRecord.storageSchema}`);
+          }
+          if (storedRecord.kind !== "workspace" || storedRecord.robotModel !== RobotMode.id || !storedRecord.projectData) {
+            throw new Error("The locally saved workspace record is inconsistent");
+          }
+          workspaceMutationRevision = Math.max(0, Number(storedRecord.revision) || 0);
+          workspaceStoredRevision = workspaceMutationRevision;
+          const data = normalizedProjectFile(
+            { ...storedRecord.projectData, audio: storedRecord.audio || null },
+            RobotMode.profile.projectExtension
+          );
+          const result = await applyProjectPayload(data, { audioKind: "device", announce: true, localRestore: true });
+          restored = true;
+          needsResave = result.revalidated;
+        }
+      }
+      workspaceHydrating = false;
+      workspaceAutosaveEnabled = true;
+      setLocalSaveStatus("saved");
+      if (needsResave) {
+        workspaceMutationRevision += 1;
+        await persistWorkspaceNow();
+      }
+      return { restored, robotModel: RobotMode.id };
+    } catch (error) {
+      console.warn("Local workspace restore failed:", error);
+      workspaceHydrating = false;
+      workspaceAutosaveEnabled = true;
+      setLocalSaveStatus("error");
+      showToast(`Local workspace could not be restored; a clean ${RobotMode.profile.displayName} project is ready. ${error.message}`, "warn", 8e3);
+      return { restored: false, robotModel: RobotMode.id, error: error.message };
+    } finally {
+      workspaceHydrating = false;
+      setEditorLocked(LiveSync.isActive());
+      if (pendingToken) {
+        url.searchParams.delete("openProject");
+        globalThis.history.replaceState(null, "", url.href);
       }
       markDocumentDirty(false);
-    } catch (err) {
-      console.error(err);
-      showToast("Load failed — invalid project file?", "error");
+      setRobotPose(getState().initialPose);
     }
+  }
+  document.addEventListener("visibilitychange", () => {
+    if (document.visibilityState === "hidden") void flushWorkspaceAutosave();
+  });
+  globalThis.addEventListener("pagehide", () => {
+    void flushWorkspaceAutosave();
+  });
+  globalThis.addEventListener("beforeunload", (event) => {
+    if (!workspaceAutosaveEnabled || workspaceMutationRevision <= workspaceStoredRevision) return;
+    void flushWorkspaceAutosave();
+    event.preventDefault();
+    event.returnValue = "";
   });
   window.addEventListener("keydown", (e2) => {
     const target = e2.target instanceof Element ? e2.target : null;
@@ -34416,8 +34772,9 @@ move_frame("base", basePose, existingBaseParent)`;
   });
   renderBlockInspector();
   refreshHistoryButtons();
-  markDocumentDirty(false);
+  setLocalSaveStatus("restoring");
   setRobotPose(getState().initialPose);
+  var workspaceReadyPromise = restoreWorkspaceOnBoot();
   function loop(now) {
     requestAnimationFrame(loop);
     jogStep();
@@ -34448,7 +34805,34 @@ move_frame("base", basePose, existingBaseParent)`;
     const seconds = minDurationFor(state.waypoints, index, state.initialPose);
     return { seconds, steps: Math.round(seconds / PROFILE.controllerPeriod) };
   }
-  window.__choreography = { robotMode: RobotMode.id, getState, setRobotPose, audio, liveSync: LiveSync, requestPlayback, recordAt, confirmInsert, cancelInsert, timeline, undo, redo, copyWaypoint, cutWaypoint, pasteAt, hasClipboard, renameWaypoint, smartSaveProject, buildFairinoLua, timingFloorForBlock };
+  window.__choreography = {
+    robotMode: RobotMode.id,
+    getState,
+    setRobotPose,
+    audio,
+    liveSync: LiveSync,
+    requestPlayback,
+    recordAt,
+    confirmInsert,
+    cancelInsert,
+    timeline,
+    undo,
+    redo,
+    copyWaypoint,
+    cutWaypoint,
+    pasteAt,
+    hasClipboard,
+    renameWaypoint,
+    smartSaveProject,
+    buildFairinoLua,
+    timingFloorForBlock,
+    workspace: {
+      ready: workspaceReadyPromise,
+      flush: flushWorkspaceAutosave,
+      status: () => localSaveStatus,
+      revision: () => workspaceStoredRevision
+    }
+  };
   window.__ur20 = window.__choreography;
 })();
 </script>
