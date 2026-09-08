@@ -852,7 +852,7 @@ body.editor-locked #tl-open-btn{opacity:.48}
             <span></span>
             <button class="btn btn-outline" id="move-pose-to-playhead-btn" type="button" data-editor-mutation>Use playhead time</button>
           </div>
-          <p class="timing-help" id="block-timing-help">Type a duration or drag the block's right edge. Drag the block body to place the pose on the music.</p>
+          <p class="timing-help" id="block-timing-help">Type a duration or drag the block's right edge. Expansion shortens the next motion by the same time; drag the block body to place its pose on the music.</p>
           <div class="timing-facts">
             <div><span>Acceleration</span><strong id="block-a-value">—</strong></div>
             <div><span>Velocity</span><strong id="block-v-value">—</strong></div>
@@ -29384,9 +29384,17 @@ globalThis.__FR5_BUILD_METADATA__=Object.freeze({"schemaVersion":1,"robotModel":
         return retimeSampled ? resolveSequence(wps, fallbackQ) : wps;
       }
       const fixedSlotSteps = oldSteps + existingGapSteps;
-      const ownSteps = Math.min(fixedSlotSteps, desiredSteps);
-      const gapSteps = fixedSlotSteps - ownSteps;
+      const successor = wps[successorIndex];
+      const canBorrow = wp.type === "moveJ" && successor?.type === "moveJ";
+      const successorOldSteps = canBorrow ? durationStepsOf2(successor) : 0;
+      const successorMinSteps = canBorrow ? secondsToSteps(minDurationFor2(wps, successorIndex, fallbackQ)) : successorOldSteps;
+      const requestedBorrowSteps = Math.max(0, desiredSteps - fixedSlotSteps);
+      const availableBorrowSteps = canBorrow ? Math.max(0, successorOldSteps - successorMinSteps) : 0;
+      const borrowedSteps = Math.min(requestedBorrowSteps, availableBorrowSteps);
+      const ownSteps = Math.min(desiredSteps, fixedSlotSteps) + borrowedSteps;
+      const gapSteps = Math.max(0, fixedSlotSteps - ownSteps);
       setSteps(wp, ownSteps);
+      if (borrowedSteps > 0) setSteps(successor, successorOldSteps - borrowedSteps);
       if (gapSteps > 0) {
         if (existingGap) {
           setSteps(existingGap, gapSteps);
@@ -32705,7 +32713,8 @@ move_frame("base", basePose, existingBaseParent)`;
       resizePreservingDownstreamSeconds,
       findReorderTarget,
       placeBlockAtEndSeconds,
-      isAutomaticGap: isAutomaticGap2
+      isAutomaticGap: isAutomaticGap2,
+      isOwnedTimingGap
     } = Sequence;
     let pxPerSec = 100;
     let scrollPx = 0;
@@ -32883,7 +32892,7 @@ move_frame("base", basePose, existingBaseParent)`;
       });
       window.addEventListener("mouseup", () => {
         if (!dragState) return;
-        const { mode, id, lastTargetIndex, pendDuration, pendingEndTime } = dragState;
+        const { mode, id, lastTargetIndex, pendDuration, requestedDuration, pendingEndTime } = dragState;
         if (dragState.blkEl) dragState.blkEl.classList.remove("dragging");
         document.body.style.cursor = "";
         hideTip();
@@ -32892,7 +32901,7 @@ move_frame("base", basePose, existingBaseParent)`;
           cb.onReorder(id, lastTargetIndex);
         }
         if (mode === "resize-r" && cb.onResize && pendDuration != null) {
-          cb.onResize(id, "right", pendDuration);
+          cb.onResize(id, "right", pendDuration, requestedDuration);
         }
         if (mode === "move-time" && cb.onMoveTime && pendingEndTime != null) {
           cb.onMoveTime(id, pendingEndTime);
@@ -32977,8 +32986,19 @@ move_frame("base", basePose, existingBaseParent)`;
         repositionAll(preview);
         const wp = preview[dragState.index];
         const t2 = withTimestamps2(preview)[dragState.index];
-        showTip(cx, cy, `${fmtTime(t2.start)} → ${fmtTime(t2.end)}  (${wp.duration.toFixed(2)}s)`);
+        const limited = wp.duration + PROFILE.controllerPeriod / 2 < Math.max(0, snappedDur);
+        const original = lastWaypoints[dragState.index];
+        const ownedGap = isOwnedTimingGap(lastWaypoints[dragState.index + 1], original?.id);
+        const blocker = lastWaypoints[dragState.index + 1 + (ownedGap ? 1 : 0)];
+        const limitLabel = blocker?.type === "wait" ? "next wait boundary" : "next motion at minimum";
+        showTip(
+          cx,
+          cy,
+          `${fmtTime(t2.start)} → ${fmtTime(t2.end)}  (${wp.duration.toFixed(2)}s)${limited ? ` · ${limitLabel}` : ""}`,
+          limited ? "warn" : "info"
+        );
         dragState.pendDuration = wp.duration;
+        dragState.requestedDuration = Math.max(0, snappedDur);
       }
     }
     function applyTransform() {
@@ -33084,7 +33104,7 @@ move_frame("base", basePose, existingBaseParent)`;
         blk.tabIndex = 0;
         blk.setAttribute("role", "button");
         blk.setAttribute("aria-pressed", String(isSel));
-        blk.setAttribute("aria-label", `${wp.type === "wait" ? "Wait" : "MoveJ"} ${wp.name}, ${wp.duration.toFixed(3)} seconds. ${wp.type === "moveJ" ? "Drag the body to place its target on the music. " : ""}Drag the right edge to change duration. Control plus Left or Right Arrow reorders this block.`);
+        blk.setAttribute("aria-label", `${wp.type === "wait" ? "Wait" : "MoveJ"} ${wp.name}, ${wp.duration.toFixed(3)} seconds. ${wp.type === "moveJ" ? "Drag the body to place its target on the music. Dragging its right edge longer shortens the next motion by the same time. " : ""}Drag the right edge to change duration. Control plus Left or Right Arrow reorders this block.`);
         blockEls.set(wp.id, blk);
         const isAutoGap = isAutomaticGap2(wp);
         const lh = document.createElement("div");
@@ -33106,7 +33126,7 @@ move_frame("base", basePose, existingBaseParent)`;
         body.append(nm, tm);
         const rh = document.createElement("div");
         rh.className = "tl-rz-r" + (isAutoGap ? " disabled" : "");
-        rh.title = isAutoGap ? "Automatic timing filler" : "Change duration; later blocks stay fixed";
+        rh.title = isAutoGap ? "Automatic timing filler" : wp.type === "moveJ" ? "Change duration; expansion shortens the next motion" : "Change hold duration";
         blk.append(lh, body, rh);
         body.addEventListener("dblclick", (e2) => {
           e2.stopPropagation();
@@ -33716,7 +33736,7 @@ move_frame("base", basePose, existingBaseParent)`;
     setText("block-start-value", timeline.fmtTime(block.start));
     setText("block-end-value", timeline.fmtTime(block.end));
     setText("inspector-duration-label", block.type === "wait" ? "Hold duration" : "Move duration");
-    setText("block-timing-help", block.type === "moveJ" ? "Type a duration or drag the right edge. Drag the block body to place when the pose lands on the music." : "Type a hold duration or drag the block right edge.");
+    setText("block-timing-help", block.type === "moveJ" ? "Type a duration or drag the right edge. Expansion shortens the next motion by the same time; drag the block body to place when the pose lands on the music." : "Type a hold duration or drag the block right edge.");
     blockNameInputEl.value = block.name;
     blockDurationInputEl.value = Number(block.duration).toFixed(3);
     blockStepsInputEl.value = String(block.durationSteps);
@@ -33777,6 +33797,21 @@ move_frame("base", basePose, existingBaseParent)`;
     const context = selectedBlockContext();
     if (context && !editorLocked) renameWaypoint(context.block.id, blockNameInputEl.value);
   });
+  function durationLimitHint(context) {
+    const blocks = getState().waypoints;
+    const index = blocks.findIndex((block) => block.id === context.block.id);
+    const gap = Sequence.isOwnedTimingGap(blocks[index + 1], context.block.id);
+    const next = blocks[index + 1 + (gap ? 1 : 0)];
+    return next?.type === "wait" ? "Expansion stopped at the next wait." : "The following motion reached its minimum feasible duration, so this expansion was capped.";
+  }
+  function showDurationLimit(context, requested, actual) {
+    if (!Number.isFinite(actual)) return;
+    if (requested > context.block.durationSteps && actual < requested) {
+      showToast(durationLimitHint(context), "warn", 5500);
+    } else if (requested < context.block.durationSteps && actual > requested) {
+      showToast("This motion is already at its minimum feasible duration.", "warn", 5500);
+    }
+  }
   blockDurationInputEl?.addEventListener("change", () => {
     const context = selectedBlockContext();
     if (!context || editorLocked) return;
@@ -33785,9 +33820,7 @@ move_frame("base", basePose, existingBaseParent)`;
       const requested = Math.round(seconds / PROFILE.controllerPeriod);
       setBlockDurationSteps(context.block.id, requested);
       const actual = getState().waypoints.find((block) => block.id === context.block.id)?.durationSteps;
-      if (Number.isFinite(actual) && actual < requested) {
-        showToast("Duration reached the available slot. Move the next pose later to make more room.", "warn", 5500);
-      }
+      showDurationLimit(context, requested, actual);
     } else renderBlockInspector();
   });
   blockStepsInputEl?.addEventListener("change", () => {
@@ -33796,9 +33829,7 @@ move_frame("base", basePose, existingBaseParent)`;
     const requested = Math.round(Number(blockStepsInputEl.value) || 0);
     setBlockDurationSteps(context.block.id, requested);
     const actual = getState().waypoints.find((block) => block.id === context.block.id)?.durationSteps;
-    if (Number.isFinite(actual) && actual < requested) {
-      showToast("Duration reached the available slot. Move the next pose later to make more room.", "warn", 5500);
-    }
+    showDurationLimit(context, requested, actual);
   });
   function placeSelectedPoseAt(seconds) {
     const context = selectedBlockContext();
@@ -34178,7 +34209,13 @@ move_frame("base", basePose, existingBaseParent)`;
   timeline.initTimeline({
     onBlockClick: (id) => selectWaypointSafely(id),
     onBlockDblClick: (id, labelEl, currentName) => startInlineRename(labelEl, id, currentName),
-    onResize: (id, side, duration) => resizeBlockEdge(id, side, duration),
+    onResize: (id, side, duration, requestedDuration) => {
+      const context = selectedBlockContext();
+      const attemptedSteps = Math.round(Math.max(0, Number(requestedDuration ?? duration) || 0) / PROFILE.controllerPeriod);
+      resizeBlockEdge(id, side, duration);
+      const actual = getState().waypoints.find((block) => block.id === id)?.durationSteps;
+      if (context?.block.id === id) showDurationLimit(context, attemptedSteps, actual);
+    },
     onMoveTime: (id, endSeconds) => {
       const result = moveBlockTargetEndSteps(id, Math.round(endSeconds / PROFILE.controllerPeriod));
       if (result?.limited) {
