@@ -28,6 +28,10 @@ This is a simulator-authoring tool. It does not connect to or command a physical
 robot from the hosted site. Validate exported programs in FAIRINO SimMachine,
 then perform the manufacturer-required risk assessment before physical use.
 
+## Authors
+
+Megan Del Villar and Abbad Shazly
+
 ## Third-party material
 
 Read [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) before copying or
