@@ -29695,65 +29695,121 @@ globalThis.__FR5_BUILD_METADATA__=Object.freeze({"schemaVersion":1,"robotModel":
       const nextMoveIndex = waypoints.findIndex(
         (block, candidateIndex) => candidateIndex > index && block.type === "moveJ"
       );
-      const edited = resolveMoveBlock({
-        ...waypoints[index],
-        q: [...newQ],
-        durationSteps: 0,
-        duration: 0,
-        timingMode: "fastest",
-        command: null,
-        timing: void 0,
-        _calibratedAV: void 0,
-        validation: void 0,
-        source: { format: "editor", kind: "pose-edit", derivedFrom: waypoints[index].source?.format || null }
-      }, previousQ);
-      if (edited.timing?.certified !== true) {
-        const reason = edited.timing?.certificationReasons?.join("; ") || "the constrained motion profile rejected it";
-        throw new Error(`${edited.name || "MoveJ"} is infeasible: ${reason}`);
+      const editedMinimum = fastestEquivalent(previousQ, newQ);
+      if (editedMinimum.certified !== true) {
+        const reason = editedMinimum.certificationReasons?.join("; ") || "the constrained motion profile rejected it";
+        throw new Error(`${waypoints[index].name || "MoveJ"} is infeasible: ${reason}`);
       }
+      let pairTotalSteps = null;
+      let editedTargetSteps = editedMinimum.wholeCallSteps;
+      let nextTargetSteps = null;
+      let nextMinimum = null;
+      if (nextMoveIndex >= 0) {
+        const next = waypoints[nextMoveIndex];
+        nextMinimum = fastestEquivalent(newQ, next.q);
+        if (nextMinimum.certified !== true) {
+          const reason = nextMinimum.certificationReasons?.join("; ") || "the constrained motion profile rejected it";
+          throw new Error(`${next.name || "The following MoveJ"} is infeasible: ${reason}`);
+        }
+        const rawPairTotal = durationStepsOf2(waypoints[index]) + durationStepsOf2(next);
+        if (!Number.isInteger(rawPairTotal)) {
+          throw new Error("The edited pair is not aligned to whole controller ticks");
+        }
+        pairTotalSteps = rawPairTotal;
+        const requiredSteps = editedMinimum.wholeCallSteps + nextMinimum.wholeCallSteps;
+        if (pairTotalSteps < requiredSteps) {
+          throw new Error(
+            `The edited pair needs at least ${stepsToSeconds(requiredSteps).toFixed(3)} s, but its fixed combined time is ${stepsToSeconds(pairTotalSteps).toFixed(3)} s`
+          );
+        }
+        if (requiredSteps === 0) {
+          if (pairTotalSteps > 0) throw new Error("A stationary pair cannot absorb the existing motion time without adding a wait");
+          editedTargetSteps = 0;
+        } else {
+          const proportional = Math.round(pairTotalSteps * editedMinimum.wholeCallSteps / requiredSteps);
+          editedTargetSteps = Math.max(
+            editedMinimum.wholeCallSteps,
+            Math.min(pairTotalSteps - nextMinimum.wholeCallSteps, proportional)
+          );
+        }
+        nextTargetSteps = pairTotalSteps - editedTargetSteps;
+      } else {
+        const originalSteps = durationStepsOf2(waypoints[index]);
+        if (!Number.isInteger(originalSteps)) throw new Error("The edited motion is not aligned to whole controller ticks");
+        if (originalSteps < editedMinimum.wholeCallSteps) {
+          throw new Error(
+            `The edited motion needs at least ${stepsToSeconds(editedMinimum.wholeCallSteps).toFixed(3)} s, but its fixed duration is ${stepsToSeconds(originalSteps).toFixed(3)} s`
+          );
+        }
+        editedTargetSteps = originalSteps;
+      }
+      function editableSource(block, details) {
+        const {
+          trace: _trace,
+          retimed: _retimed,
+          representation: _representation,
+          segmentation: _segmentation,
+          ...source
+        } = block.source || {};
+        return {
+          ...source,
+          format: "editor",
+          derivedFrom: source.derivedFrom || source.format || null,
+          replacedTimingMode: source.replacedTimingMode || block.timingMode || null,
+          replacedSampledTrajectory: source.replacedSampledTrajectory === true || block.timingMode === "sampled",
+          ...details
+        };
+      }
+      function rebuild(block, qStart, qGoal, targetSteps, source) {
+        const rebuilt = resolveMoveBlock({
+          ...block,
+          q: [...qGoal],
+          durationSteps: targetSteps,
+          duration: stepsToSeconds(targetSteps),
+          timingMode: "authored",
+          command: null,
+          timing: void 0,
+          _calibratedAV: void 0,
+          validation: void 0,
+          source
+        }, qStart);
+        if (rebuilt.timing?.certified !== true) {
+          const reason = rebuilt.timing?.certificationReasons?.join("; ") || "the constrained motion profile rejected it";
+          throw new Error(`${rebuilt.name || "MoveJ"} is infeasible: ${reason}`);
+        }
+        if (durationStepsOf2(rebuilt) !== targetSteps) {
+          throw new Error(`${rebuilt.name || "MoveJ"} could not preserve its assigned controller-tick duration`);
+        }
+        return rebuilt;
+      }
+      const edited = rebuild(
+        waypoints[index],
+        previousQ,
+        newQ,
+        editedTargetSteps,
+        editableSource(waypoints[index], { kind: "pose-edit", conservedPairSteps: pairTotalSteps })
+      );
       const resolved = [...waypoints];
       resolved[index] = edited;
       if (nextMoveIndex >= 0) {
         const next = waypoints[nextMoveIndex];
-        if (next.timingMode === "sampled") {
-          const recordedStart = next.source?.trace?.startQ;
-          const startMatches = isJointVector2(recordedStart) && recordedStart.every(
-            (value, joint) => Math.abs(value - newQ[joint]) <= 1e-7
-          );
-          if (!startMatches) {
-            throw new Error(`${next.name || "The next sampled motion"} has a fixed recorded start and cannot safely follow this edited pose`);
-          }
-          const verifiedNext = resolveMoveBlock(next, edited.q);
-          if (verifiedNext.timing?.certified !== true) {
-            const reason = verifiedNext.timing?.certificationReasons?.join("; ") || "the recorded path is no longer feasible";
-            throw new Error(`${verifiedNext.name || "The next sampled motion"} is infeasible: ${reason}`);
-          }
-          resolved[nextMoveIndex] = verifiedNext;
-        } else {
-          const verifiedNext = resolveMoveBlock({
-            ...next,
-            durationSteps: 0,
-            duration: 0,
-            timingMode: "fastest",
-            command: null,
-            timing: void 0,
-            _calibratedAV: void 0,
-            validation: void 0,
-            source: { ...next.source || {}, recalculatedAfterPoseEdit: editedId }
-          }, edited.q);
-          if (verifiedNext.timing?.certified !== true) {
-            const reason = verifiedNext.timing?.certificationReasons?.join("; ") || "the constrained motion profile rejected it";
-            throw new Error(`${verifiedNext.name || "The following MoveJ"} is infeasible: ${reason}`);
-          }
-          resolved[nextMoveIndex] = verifiedNext;
-        }
+        resolved[nextMoveIndex] = rebuild(
+          next,
+          edited.q,
+          next.q,
+          nextTargetSteps,
+          editableSource(next, { kind: "pose-edit-successor", recalculatedAfterPoseEdit: editedId, conservedPairSteps: pairTotalSteps })
+        );
       }
       return {
         waypoints: resolved,
         editedIndex: index,
         nextMoveIndex,
         editedDurationSteps: durationStepsOf2(resolved[index]),
-        nextDurationSteps: nextMoveIndex >= 0 ? durationStepsOf2(resolved[nextMoveIndex]) : null
+        nextDurationSteps: nextMoveIndex >= 0 ? durationStepsOf2(resolved[nextMoveIndex]) : null,
+        pairTotalSteps,
+        editedMinimumSteps: editedMinimum.wholeCallSteps,
+        nextMinimumSteps: nextMinimum?.wholeCallSteps ?? null
       };
     }
     function fixMinimumDurations(waypoints, fallbackQ = POSE_HOME2) {
@@ -30021,13 +30077,17 @@ globalThis.__FR5_BUILD_METADATA__=Object.freeze({"schemaVersion":1,"robotModel":
         id,
         editedDurationSteps: result.editedDurationSteps,
         nextMoveId: result.nextMoveIndex >= 0 ? waypoints[result.nextMoveIndex].id : null,
-        nextDurationSteps: result.nextDurationSteps
+        nextDurationSteps: result.nextDurationSteps,
+        pairTotalSteps: result.pairTotalSteps
       });
       return {
         editedId: id,
         editedDurationSteps: result.editedDurationSteps,
         nextMoveId: result.nextMoveIndex >= 0 ? waypoints[result.nextMoveIndex].id : null,
-        nextDurationSteps: result.nextDurationSteps
+        nextDurationSteps: result.nextDurationSteps,
+        pairTotalSteps: result.pairTotalSteps,
+        editedMinimumSteps: result.editedMinimumSteps,
+        nextMinimumSteps: result.nextMinimumSteps
       };
     }
     function setBlockDurationSteps2(id, requestedSteps) {
@@ -33892,18 +33952,23 @@ move_frame("base", basePose, existingBaseParent)`;
     if (result.nextMoveId && Number.isFinite(result.nextDurationSteps)) {
       const next = getState().waypoints.find((block) => block.id === result.nextMoveId);
       const nextDuration = (result.nextDurationSteps * PROFILE.controllerPeriod).toFixed(3);
-      return `Accepted · this move ${edited} s · ${next?.name || "next move"} ${nextDuration} s`;
+      const total = Number.isFinite(result.pairTotalSteps) ? ` · combined ${(result.pairTotalSteps * PROFILE.controllerPeriod).toFixed(3)} s unchanged` : "";
+      return `Accepted · this move ${edited} s · ${next?.name || "next move"} ${nextDuration} s${total}`;
     }
     return `Accepted · this move retimed to ${edited} s`;
   }
   function renderPoseEditState() {
     const banner = document.getElementById("pose-edit-banner");
     if (!banner) return;
-    const block = editingWaypointId ? getState().waypoints.find((item) => item.id === editingWaypointId) : null;
+    const currentState = getState();
+    const block = editingWaypointId ? currentState.waypoints.find((item) => item.id === editingWaypointId) : null;
     banner.hidden = !block;
     if (!block) return;
+    const blockIndex = currentState.waypoints.findIndex((item) => item.id === editingWaypointId);
+    const nextMove = blockIndex < 0 ? null : currentState.waypoints.find((item, index) => index > blockIndex && item.type === "moveJ");
+    const replacesSamples = block.timingMode === "sampled" || nextMove?.timingMode === "sampled";
     setText("pose-edit-title", `Editing ${block.name}`);
-    setText("pose-edit-status", poseDraftDirty ? "Previewing the new target. Feasibility and both affected durations will be checked automatically." : poseEditNotice || "Joint and tool controls are linked to this MoveJ.");
+    setText("pose-edit-status", poseDraftDirty ? "Previewing the new target. The two affected durations will share their existing combined time automatically." : poseEditNotice || (replacesSamples ? "Imported samples will become constrained MoveJ commands. Combined time stays fixed, and Undo restores the traces." : "Joint and tool controls are linked to this MoveJ."));
   }
   function clearPoseDraftTimer() {
     if (poseDraftTimer != null) {
@@ -35720,6 +35785,7 @@ move_frame("base", basePose, existingBaseParent)`;
     getState,
     setRobotPose,
     setInitialPose,
+    importBlocks,
     audio,
     liveSync: LiveSync,
     requestPlayback,
