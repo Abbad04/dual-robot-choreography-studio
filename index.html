@@ -33392,12 +33392,10 @@ move_frame("base", basePose, existingBaseParent)`;
         const collapsedAt = side === "left" ? originalTimed.end : originalTimed.start;
         const start = t2?.start ?? collapsedAt;
         const end = t2?.end ?? collapsedAt;
-        const limited = Math.abs(actualDuration - snappedDur) > PROFILE.controllerPeriod / 2;
         showTip(
           cx,
           cy,
-          `${fmtTime(start)} → ${fmtTime(end)}  (${actualDuration.toFixed(2)}s)${limited ? " · motion minimum reached" : ""}`,
-          limited ? "warn" : "info"
+          `${fmtTime(start)} → ${fmtTime(end)}  (${actualDuration.toFixed(2)}s)`
         );
         dragState.pendDuration = actualDuration;
         dragState.requestedDuration = Math.max(0, snappedDur);
@@ -33669,6 +33667,9 @@ move_frame("base", basePose, existingBaseParent)`;
     function showToast2(msg, type = "info", duration = 2800) {
       const c2 = document.getElementById("toast-container");
       if (!c2) return;
+      if ((type === "warn" || type === "error") && [...c2.children].some(
+        (item) => item.classList.contains("toast-" + type) && item.textContent === msg
+      )) return;
       const t2 = document.createElement("div");
       t2.className = "toast toast-" + type;
       t2.textContent = msg;
@@ -34281,12 +34282,12 @@ move_frame("base", basePose, existingBaseParent)`;
     const next = blocks[index + 1 + (gap ? 1 : 0)];
     return next?.type === "wait" ? "Expansion stopped at the next wait." : "The following motion reached its minimum feasible duration, so this expansion was capped.";
   }
-  function showDurationLimit(context, requested, actual) {
+  function showDurationLimit(context, requested, actual, edgeSide = null) {
     if (!Number.isFinite(actual)) return;
     if (requested > context.block.durationSteps && actual < requested) {
-      showToast(durationLimitHint(context), "warn", 5500);
+      showToast(edgeSide ? "The neighboring block cannot be shortened any further." : durationLimitHint(context), "warn", 5500);
     } else if (requested < context.block.durationSteps && actual > requested) {
-      showToast("This motion is already at its minimum feasible duration.", "warn", 5500);
+      showToast(edgeSide ? "This motion cannot be shortened any further." : "This motion is already at its minimum feasible duration.", "warn", 5500);
     }
   }
   blockDurationInputEl?.addEventListener("change", () => {
@@ -34806,7 +34807,7 @@ move_frame("base", basePose, existingBaseParent)`;
       const attemptedSteps = Math.round(Math.max(0, Number(requestedDuration ?? duration) || 0) / PROFILE.controllerPeriod);
       resizeBlockEdge(id, side, duration);
       const actual = getState().waypoints.find((block) => block.id === id)?.durationSteps;
-      if (context?.block.id === id) showDurationLimit(context, attemptedSteps, actual);
+      if (context?.block.id === id) showDurationLimit(context, attemptedSteps, actual, side);
     },
     onMoveTime: (id, endSeconds) => {
       if (!settlePoseDraftForMutation()) return null;
