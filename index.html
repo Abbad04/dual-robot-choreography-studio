@@ -31132,7 +31132,7 @@ globalThis.__FR5_BUILD_METADATA__=Object.freeze({"schemaVersion":1,"robotModel":
         if (el[`sl${upper}`]) {
           el[`sl${upper}`].value = ep[i2].toFixed(3);
           if (el[`num${upper}`]) el[`num${upper}`].value = ep[i2].toFixed(3);
-          el[`v${upper}`].textContent = ep[i2].toFixed(3);
+          if (el[`v${upper}`]) el[`v${upper}`].textContent = ep[i2].toFixed(3);
           updateGradient(el[`sl${upper}`]);
         }
       });
