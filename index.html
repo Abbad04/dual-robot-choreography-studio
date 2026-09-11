@@ -446,6 +446,8 @@ input[type=checkbox],input[type=radio]{width:17px;height:17px;accent-color:var(-
 .wp-li{border:1px solid var(--border);border-radius:var(--radius);background:var(--surface-1);cursor:pointer;transition:all var(--ease)}
 .wp-li:hover{border-color:var(--border-strong);background:var(--surface-2)}
 .wp-li.sel{border-color:var(--cyan);background:var(--cyan-soft)}
+.wp-li:focus-visible{outline:2px solid var(--cyan);outline-offset:2px}
+.sequence-nav-help{margin:-3px 0 9px;color:var(--text-muted);font-size:9px;line-height:1.45}
 .wp-main{display:flex;align-items:center;gap:8px;padding:8px}
 .wp-num{width:22px;color:var(--text-muted);font:10px ui-monospace,SFMono-Regular,Consolas,monospace;text-align:center}
 .wp-type{display:grid;place-items:center;width:22px;height:22px;border-radius:4px;font:800 9px ui-monospace,SFMono-Regular,Consolas,monospace}
@@ -572,7 +574,7 @@ body.has-live-strip #live-run-strip{display:grid}
 #tl-tip{position:fixed;z-index:2200;display:none;max-width:280px;padding:5px 8px;color:var(--cyan);background:#111922;border:1px solid var(--cyan);border-radius:4px;transform:translateX(-50%);font:10px ui-monospace,SFMono-Regular,Consolas,monospace;pointer-events:none}
 #tl-tip.tip-warn{color:var(--red);border-color:var(--red);white-space:normal;text-align:center}
 .editor-dialog{
-  width:min(92vw,390px);padding:0;color:var(--text);background:#111820;border:1px solid var(--border-strong);border-radius:10px;box-shadow:var(--shadow);
+  width:min(92vw,390px);margin:auto;padding:0;color:var(--text);background:#111820;border:1px solid var(--border-strong);border-radius:10px;box-shadow:var(--shadow);
 }
 .editor-dialog::backdrop{background:rgba(0,0,0,.68);backdrop-filter:blur(3px)}
 .editor-dialog form{padding:18px}
@@ -588,6 +590,9 @@ body.has-live-strip #live-run-strip{display:grid}
 .inline-rename-inp{width:100%}
 .dialog-copy{margin:-7px 0 13px;color:var(--text-muted);font-size:10px;line-height:1.5}
 .dialog-copy code{color:var(--text-soft)}
+.shortcut-grid{display:grid;grid-template-columns:minmax(132px,auto) 1fr;gap:8px 16px;align-items:center}
+.shortcut-grid kbd{display:inline-flex;justify-content:center;align-items:center;min-height:27px;padding:4px 8px;color:var(--text-soft);background:#0b1016;border:1px solid var(--border-strong);border-bottom-width:2px;border-radius:5px;font:650 10px ui-monospace,SFMono-Regular,Consolas,monospace;white-space:nowrap}
+.shortcut-grid span{color:var(--text-muted);font-size:10px}
 #joint-paste-input{width:100%;margin-top:6px;padding:9px;color:var(--text);background:#0b1016;border:1px solid var(--border);border-radius:6px;resize:vertical;font:11px/1.5 ui-monospace,SFMono-Regular,Consolas,monospace}
 #joint-paste-input:focus{border-color:var(--cyan);outline:none}
 .joint-paste-options{display:grid;grid-template-columns:auto minmax(90px,1fr) auto;align-items:center;gap:8px;margin:10px 0}
@@ -661,12 +666,12 @@ body.editor-locked #tl-open-btn{opacity:.48}
       <span id="dirty-indicator" class="dirty-indicator" aria-live="polite">Not saved</span>
     </div>
     <nav class="top-actions" aria-label="Project actions">
-      <button class="toolbar-btn" id="undo-btn" type="button" title="Undo (Ctrl+Z)" data-editor-mutation>Undo</button>
-      <button class="toolbar-btn" id="redo-btn" type="button" title="Redo (Ctrl+Y)" data-editor-mutation>Redo</button>
+      <button class="toolbar-btn" id="undo-btn" type="button" title="Undo (Ctrl+Z)" aria-keyshortcuts="Control+Z Meta+Z" data-editor-mutation>Undo</button>
+      <button class="toolbar-btn" id="redo-btn" type="button" title="Redo (Ctrl+Y or Ctrl+Shift+Z)" aria-keyshortcuts="Control+Y Meta+Y Control+Shift+Z Meta+Shift+Z" data-editor-mutation>Redo</button>
       <span class="toolbar-divider" aria-hidden="true"></span>
       <button class="toolbar-btn" id="new-project-btn" type="button" title="Start a blank project for the selected robot" data-editor-mutation>New project</button>
       <button class="toolbar-btn" id="load-project-btn" type="button" data-editor-mutation>Open</button>
-      <button class="toolbar-btn" id="save-project-btn" type="button" data-editor-mutation>Save</button>
+      <button class="toolbar-btn" id="save-project-btn" type="button" title="Save (Ctrl+S)" aria-keyshortcuts="Control+S Meta+S" data-editor-mutation>Save</button>
       <button class="toolbar-btn" id="save-project-as-btn" type="button" title="Choose a new project file" data-editor-mutation>Save As</button>
       <span id="save-badge" role="status">Not saved</span>
       <input type="file" id="load-project-inp" accept=".ur20proj,.fr5proj,.json" class="visually-hidden">
@@ -681,11 +686,11 @@ body.editor-locked #tl-open-btn{opacity:.48}
 
   <aside id="create-rail" aria-label="Create choreography blocks">
     <div class="rail-label">Create</div>
-    <button class="rail-action rail-action-primary" id="record-btn" type="button" title="Add the current pose at the playhead (R)" data-editor-mutation>
+    <button class="rail-action rail-action-primary" id="record-btn" type="button" title="Add the current pose at the playhead (R)" aria-keyshortcuts="R" data-editor-mutation>
       <span class="rail-glyph" aria-hidden="true">M</span>
       <span>MoveJ</span>
     </button>
-    <button class="rail-action" id="record-wait-btn" type="button" title="Add a wait at the playhead (W)" data-editor-mutation>
+    <button class="rail-action" id="record-wait-btn" type="button" title="Add a wait at the playhead (W)" aria-keyshortcuts="W" data-editor-mutation>
       <span class="rail-glyph rail-glyph-wait" aria-hidden="true">W</span>
       <span>Wait</span>
     </button>
@@ -909,13 +914,14 @@ body.editor-locked #tl-open-btn{opacity:.48}
             <button class="btn btn-outline" id="move-block-earlier-btn" type="button" data-editor-mutation>Move earlier</button>
             <button class="btn btn-outline" id="move-block-later-btn" type="button" data-editor-mutation>Move later</button>
             <button class="btn btn-outline" id="duplicate-block-btn" type="button" data-editor-mutation>Duplicate</button>
-            <button class="btn btn-danger" id="delete-block-btn" type="button" data-editor-mutation>Delete</button>
+            <button class="btn btn-danger" id="delete-block-btn" type="button" title="Delete selected block (Delete)" aria-keyshortcuts="Delete" data-editor-mutation>Delete</button>
           </div>
         </section>
 
         <section class="inspector-section">
           <div class="section-heading"><h2>Sequence navigator</h2><span id="wp-count">0</span></div>
-          <ul id="wp-ul" aria-label="Choreography block list"></ul>
+          <p class="sequence-nav-help">Choose a block to jump to its beginning. Use ↑ and ↓ to move through the sequence.</p>
+          <ul id="wp-ul" role="listbox" aria-label="Choreography block list"></ul>
         </section>
       </div>
     </section>
@@ -1007,8 +1013,8 @@ body.editor-locked #tl-open-btn{opacity:.48}
   <div id="tl-resize-h" aria-hidden="true"></div>
   <div id="tl-toolbar">
     <div class="transport-group" aria-label="Playback controls">
-      <button class="transport-btn transport-play" id="tl-play-btn" type="button">Play</button>
-      <button class="transport-btn" id="tl-pause-btn" type="button" hidden>Pause</button>
+      <button class="transport-btn transport-play" id="tl-play-btn" type="button" title="Play from the cursor (Space)" aria-keyshortcuts="Space">Play</button>
+      <button class="transport-btn" id="tl-pause-btn" type="button" title="Pause (Space)" aria-keyshortcuts="Space" hidden>Pause</button>
       <button class="transport-btn" id="tl-stop-btn" type="button">Stop</button>
       <button class="transport-btn" id="tl-loop-btn" type="button" aria-pressed="false">Loop</button>
     </div>
@@ -1030,6 +1036,8 @@ body.editor-locked #tl-open-btn{opacity:.48}
       <button class="tl-btn" id="tl-load-btn" type="button">Add audio</button>
       <button class="tl-btn" id="tl-remove-audio-btn" type="button" hidden>Remove audio</button>
       <input type="file" id="tl-file-inp" accept="audio/*" class="visually-hidden">
+      <span class="tl-sep" aria-hidden="true"></span>
+      <button class="tl-btn" id="keyboard-shortcuts-btn" type="button" title="Keyboard shortcuts (?)" aria-keyshortcuts="?">Shortcuts</button>
     </div>
   </div>
   <div class="timeline-meta">
@@ -1055,6 +1063,30 @@ body.editor-locked #tl-open-btn{opacity:.48}
 
 <div id="toast-container" role="status" aria-live="polite" aria-atomic="true"></div>
 <div id="tl-tip" role="tooltip"></div>
+
+<dialog id="keyboard-shortcuts-dialog" class="editor-dialog editor-dialog-wide">
+  <form method="dialog">
+    <div class="dialog-heading">
+      <div><span class="eyebrow">Work faster</span><h2>Keyboard shortcuts</h2></div>
+      <button class="dialog-close" value="close" type="submit" aria-label="Close keyboard shortcuts">Close</button>
+    </div>
+    <p class="dialog-copy">Shortcuts work whenever you are not typing in a field.</p>
+    <div class="shortcut-grid">
+      <kbd>← / →</kbd><span>Previous or next block</span>
+      <kbd>Home / End</kbd><span>First or last block</span>
+      <kbd>↑ / ↓</kbd><span>Move through the sequence list</span>
+      <kbd>Space</kbd><span>Play or pause from the cursor</span>
+      <kbd>R</kbd><span>Add MoveJ</span>
+      <kbd>W</kbd><span>Add Wait</span>
+      <kbd>Delete</kbd><span>Delete the selected block</span>
+      <kbd>Ctrl/Cmd + Z</kbd><span>Undo</span>
+      <kbd>Ctrl/Cmd + Shift + Z</kbd><span>Redo</span>
+      <kbd>Ctrl/Cmd + C / X / V</kbd><span>Copy, cut, or paste a block</span>
+      <kbd>Ctrl/Cmd + S</kbd><span>Save</span>
+      <kbd>?</kbd><span>Open this shortcut guide</span>
+    </div>
+  </form>
+</dialog>
 
 <dialog id="tl-insert-prompt" class="editor-dialog">
   <form method="dialog">
@@ -33439,6 +33471,19 @@ move_frame("base", basePose, existingBaseParent)`;
         el.setAttribute("aria-pressed", String(selected));
       });
     }
+    function revealBlock(id) {
+      const block = withTimestamps2(lastWaypoints).find((item) => item.id === id);
+      if (!block || !els.content) return false;
+      const viewportWidth = Math.max(1, els.content.clientWidth);
+      const startPx = toPx(block.start);
+      const margin = Math.min(120, viewportWidth * 0.2);
+      if (startPx < scrollPx + margin || startPx > scrollPx + viewportWidth - margin) {
+        scrollPx = Math.max(0, Math.min(maxScrollPx(), startPx - margin));
+        applyTransform();
+      }
+      setHeadPosition(block.start);
+      return true;
+    }
     function render(waypoints, selectedId, totalDuration, initialPose) {
       lastWaypoints = waypoints;
       lastSelectedId = selectedId;
@@ -33507,14 +33552,14 @@ move_frame("base", basePose, existingBaseParent)`;
         const leftEdgeHelp = i2 > 0 ? "Drag the left edge to share time with the previous block. " : "";
         const rightEdgeHelp = i2 < withT.length - 1 ? "Drag the right edge to share time with the next block. " : "Drag the right edge to change the ending duration. ";
         const collapseHelp = wp.type === "wait" ? "A wait disappears when fully collapsed. " : "";
-        blk.setAttribute("aria-label", `${wp.type === "wait" ? "Wait" : "MoveJ"} ${wp.name}, ${wp.duration.toFixed(3)} seconds. ${wp.type === "moveJ" ? "Drag the block body to set pose arrival. Alt plus Left or Right Arrow makes a fine adjustment. " : "Drag the block body to reorder this wait. "}${leftEdgeHelp}${rightEdgeHelp}${collapseHelp}Control plus Left or Right Arrow reorders this block.`);
+        blk.setAttribute("aria-label", `${wp.type === "wait" ? "Wait" : "MoveJ"} ${wp.name}, ${wp.duration.toFixed(3)} seconds. Select to jump to its beginning. ${wp.type === "moveJ" ? "Drag the block body to set pose arrival. Alt plus Left or Right Arrow makes a fine adjustment. " : "Drag the block body to reorder this wait. "}${leftEdgeHelp}${rightEdgeHelp}${collapseHelp}Control plus Left or Right Arrow reorders this block.`);
         blockEls.set(wp.id, blk);
         const lh = document.createElement("div");
         lh.className = "tl-rz-l";
         lh.title = wp.type === "wait" ? "Drag to share time with the previous block; collapse fully to remove" : "Drag to share time with the previous block";
         const body = document.createElement("div");
         body.className = "tl-blk-body";
-        body.title = wp.type === "moveJ" ? "Drag to set pose arrival · Alt+Left/Right makes a fine adjustment" : "Drag to reorder this wait";
+        body.title = wp.type === "moveJ" ? "Click to jump to beginning · Drag to set pose arrival · Alt+Left/Right makes a fine adjustment" : "Click to jump to beginning · Drag to reorder this wait";
         const nm = document.createElement("div");
         nm.className = "tl-blk-name";
         nm.textContent = wp.name;
@@ -33661,7 +33706,7 @@ move_frame("base", basePose, existingBaseParent)`;
       }
       setHeadPosition(t2);
     }
-    return { fmtTime, showBlockedMessage, initTimeline, open, close, isOpen, isScrubbingNow, stepScrub, isDragging, stepDrag, setZoom, getZoom, getScroll, updateSelection, render, updatePlayhead };
+    return { fmtTime, showBlockedMessage, initTimeline, open, close, isOpen, isScrubbingNow, stepScrub, isDragging, stepDrag, setZoom, getZoom, getScroll, updateSelection, revealBlock, render, updatePlayhead };
   })();
   var Toast = /* @__PURE__ */ (function() {
     function showToast2(msg, type = "info", duration = 2800) {
@@ -34128,9 +34173,32 @@ move_frame("base", basePose, existingBaseParent)`;
     clearPoseDraftTimer();
     poseDraftTimer = setTimeout(() => commitPoseDraft(), 600);
   }
-  function selectWaypointSafely(id) {
+  function selectWaypointSafely(id, { focusList = false } = {}) {
     if (editingWaypointId && editingWaypointId !== id) commitPoseDraft({ finish: true });
     selectWaypoint(id);
+    if (!id) return null;
+    const state = getState();
+    const block = withTimestamps(state.waypoints).find((item) => item.id === id);
+    if (!block) return null;
+    activateInspectorTab("block");
+    if (!LiveSync.isActive()) {
+      audio.pause();
+      syncPlayButtons(false);
+      audio.seekTo(block.start);
+      setRobotPose(poseAtTime(state.waypoints, block.start, state.initialPose));
+      timeline.updatePlayhead(
+        block.start,
+        false,
+        Math.max(audio.getDuration(), getTotalDuration(state.waypoints))
+      );
+    }
+    timeline.revealBlock(id);
+    queueMicrotask(() => {
+      const item = wpLiMap.get(id);
+      item?.scrollIntoView({ block: "nearest" });
+      if (focusList) item?.focus({ preventScroll: true });
+    });
+    return block.start;
   }
   function removeWaypointSafely(id) {
     if (editingWaypointId === id) discardPoseDraft();
@@ -34382,7 +34450,13 @@ move_frame("base", basePose, existingBaseParent)`;
   var sbWps = document.getElementById("sb-wps");
   var wpLiMap = /* @__PURE__ */ new Map();
   function updateWPListSelection(selectedId) {
-    wpLiMap.forEach((li, id) => li.classList.toggle("sel", id === selectedId));
+    wpLiMap.forEach((li, id) => {
+      const selected = id === selectedId;
+      li.classList.toggle("sel", selected);
+      li.setAttribute("aria-selected", String(selected));
+      li.tabIndex = selected ? 0 : -1;
+    });
+    if (!selectedId && wpLiMap.size) wpLiMap.values().next().value.tabIndex = 0;
   }
   function validationBadgeFor(wp, estimate, sampledAnalysis = null) {
     if (wp?.timingMode === "sampled" && sampledAnalysis) {
@@ -34418,6 +34492,11 @@ move_frame("base", basePose, existingBaseParent)`;
     withTimestamps(waypoints).forEach((wp, i2) => {
       const li = document.createElement("li");
       li.className = "wp-li" + (wp.id === selectedId ? " sel" : "");
+      li.dataset.id = wp.id;
+      li.setAttribute("role", "option");
+      li.setAttribute("aria-selected", String(wp.id === selectedId));
+      li.tabIndex = wp.id === selectedId || !selectedId && i2 === 0 ? 0 : -1;
+      li.title = `Select ${wp.name} and jump to its beginning`;
       wpLiMap.set(wp.id, li);
       const main = document.createElement("div");
       main.className = "wp-main";
@@ -34458,7 +34537,24 @@ move_frame("base", basePose, existingBaseParent)`;
         e2.stopPropagation();
         removeWaypointSafely(wp.id);
       });
-      li.addEventListener("click", () => selectWaypointSafely(wp.id));
+      li.addEventListener("click", () => selectWaypointSafely(wp.id, { focusList: true }));
+      li.addEventListener("keydown", (event) => {
+        if (event.target !== li) return;
+        let targetIndex = i2;
+        if (event.key === "ArrowUp") targetIndex = Math.max(0, i2 - 1);
+        else if (event.key === "ArrowDown") targetIndex = Math.min(waypoints.length - 1, i2 + 1);
+        else if (event.key === "Home") targetIndex = 0;
+        else if (event.key === "End") targetIndex = waypoints.length - 1;
+        else if (event.key === "Enter" || event.key === " ") {
+          event.preventDefault();
+          event.stopPropagation();
+          selectWaypointSafely(wp.id, { focusList: true });
+          return;
+        } else return;
+        event.preventDefault();
+        event.stopPropagation();
+        selectWaypointSafely(waypoints[targetIndex].id, { focusList: true });
+      });
       main.append(num, badge, body, xBtn);
       li.appendChild(main);
       wpUl.appendChild(li);
@@ -35709,15 +35805,55 @@ move_frame("base", basePose, existingBaseParent)`;
     event.preventDefault();
     event.returnValue = "";
   });
+  var keyboardShortcutsDialog = document.getElementById("keyboard-shortcuts-dialog");
+  function showKeyboardShortcuts() {
+    if (!keyboardShortcutsDialog || keyboardShortcutsDialog.open) return;
+    if (typeof keyboardShortcutsDialog.showModal === "function") keyboardShortcutsDialog.showModal();
+    else keyboardShortcutsDialog.setAttribute("open", "");
+  }
+  document.getElementById("keyboard-shortcuts-btn")?.addEventListener("click", showKeyboardShortcuts);
+  function navigateBlockByOffset(offset, { edge = null } = {}) {
+    const state = getState();
+    if (!state.waypoints.length) return false;
+    let index = state.waypoints.findIndex((block) => block.id === state.selectedId);
+    if (edge === "first") index = 0;
+    else if (edge === "last") index = state.waypoints.length - 1;
+    else if (index < 0) index = offset >= 0 ? 0 : state.waypoints.length - 1;
+    else index = Math.max(0, Math.min(state.waypoints.length - 1, index + offset));
+    selectWaypointSafely(state.waypoints[index].id);
+    return true;
+  }
   window.addEventListener("keydown", (e2) => {
     const target = e2.target instanceof Element ? e2.target : null;
     if (target?.closest('input, textarea, select, button, a, [contenteditable="true"]')) return;
+    if (document.querySelector("dialog[open]")) return;
     const mod = e2.ctrlKey || e2.metaKey;
     const key = e2.key.toLowerCase();
     const mutatesDocument = mod && ["z", "y", "x", "v"].includes(key) || e2.key === "Delete" || !mod && ["r", "w"].includes(key);
     if (editorLocked && mutatesDocument) {
       e2.preventDefault();
       showToast("Editing is locked while the UR20 run state is active", "warn");
+      return;
+    }
+    if (!mod && !e2.altKey && e2.key === "ArrowLeft") {
+      if (navigateBlockByOffset(-1)) e2.preventDefault();
+      return;
+    }
+    if (!mod && !e2.altKey && e2.key === "ArrowRight") {
+      if (navigateBlockByOffset(1)) e2.preventDefault();
+      return;
+    }
+    if (!mod && !e2.altKey && e2.key === "Home") {
+      if (navigateBlockByOffset(0, { edge: "first" })) e2.preventDefault();
+      return;
+    }
+    if (!mod && !e2.altKey && e2.key === "End") {
+      if (navigateBlockByOffset(0, { edge: "last" })) e2.preventDefault();
+      return;
+    }
+    if (!mod && !e2.altKey && (e2.key === "?" || e2.key === "/" && e2.shiftKey)) {
+      e2.preventDefault();
+      showKeyboardShortcuts();
       return;
     }
     if (mod && key === "z" && !e2.shiftKey) {
