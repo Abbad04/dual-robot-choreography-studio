@@ -794,7 +794,7 @@ body.editor-locked #tl-open-btn{opacity:.48}
           <p class="start-pose-explainer">Motion origin before Waypoint 1; it does not become a timeline block.</p>
           <output id="initial-pose-summary" class="joint-summary" aria-live="polite">J1 0.0° · J2 0.0° · J3 0.0° · J4 0.0° · J5 0.0° · J6 0.0°</output>
           <div class="compact-actions">
-            <button class="btn btn-cyan" id="set-initial-pos-btn" type="button" data-editor-mutation>Set current as start</button>
+            <button class="btn btn-cyan" id="set-initial-pos-btn" type="button" data-editor-mutation>Set start to current pose</button>
             <button class="btn btn-outline" id="goto-initial-pos-btn" type="button" data-editor-mutation>Preview start</button>
           </div>
         </div>
@@ -870,6 +870,21 @@ body.editor-locked #tl-open-btn{opacity:.48}
           <div><span id="block-start-label">Move starts</span><strong id="block-start-value">0:00.000</strong></div>
           <div><span id="block-end-label">Pose reached</span><strong id="block-end-value">0:00.000</strong></div>
         </div>
+
+        <section class="inspector-section start-pose-section" id="first-block-start-section" hidden>
+          <div class="section-heading">
+            <h2>First motion start</h2>
+            <span>time zero</span>
+          </div>
+          <div class="start-pose-card">
+            <p class="start-pose-explainer">This is where the robot begins. The app smooths the motion from here to the target below.</p>
+            <output id="first-block-start-summary" class="joint-summary" aria-live="polite"></output>
+            <div class="compact-actions">
+              <button class="btn btn-outline" id="edit-first-start-btn" type="button">Edit starting pose</button>
+              <button class="btn btn-cyan" id="set-first-start-btn" type="button" title="Use the robot pose currently shown in the preview as the first motion start" data-editor-mutation>Set start to current pose</button>
+            </div>
+          </div>
+        </section>
 
         <section class="inspector-section" id="block-joint-section">
           <div class="section-heading">
@@ -34094,6 +34109,7 @@ move_frame("base", basePose, existingBaseParent)`;
   var blockDurationInputEl = document.getElementById("inspector-duration-input");
   var poseArrivalInputEl = document.getElementById("pose-arrival-input");
   var blockJointControlsEl = document.getElementById("block-joint-controls");
+  var firstBlockStartSectionEl = document.getElementById("first-block-start-section");
   var moveBlockEarlierButtonEl = document.getElementById("move-block-earlier-btn");
   var moveBlockLaterButtonEl = document.getElementById("move-block-later-btn");
   var renderedInspectorId = null;
@@ -34224,8 +34240,10 @@ move_frame("base", basePose, existingBaseParent)`;
     timeline.revealBlock(id);
     queueMicrotask(() => {
       const item = wpLiMap.get(id);
-      item?.scrollIntoView({ block: "nearest" });
-      if (focusList) item?.focus({ preventScroll: true });
+      if (focusList) {
+        item?.scrollIntoView({ block: "nearest" });
+        item?.focus({ preventScroll: true });
+      }
     });
     return block.start;
   }
@@ -34305,6 +34323,8 @@ move_frame("base", basePose, existingBaseParent)`;
     }
     const { block, index, estimate, sampledAnalysis } = context;
     const isAutoGap = isAutomaticGap(block);
+    const firstMoveIndex = state.waypoints.findIndex((candidate) => candidate.type === "moveJ");
+    const isFirstMove = block.type === "moveJ" && index === firstMoveIndex;
     blockInspectorEmptyEl.hidden = true;
     blockInspectorEl.hidden = false;
     blockInspectorEl.dataset.selectedType = block.type;
@@ -34314,6 +34334,12 @@ move_frame("base", basePose, existingBaseParent)`;
     setText("block-end-label", block.type === "moveJ" ? "Pose reached" : "Hold ends");
     setText("block-start-value", timeline.fmtTime(block.start));
     setText("block-end-value", timeline.fmtTime(block.end));
+    if (firstBlockStartSectionEl) firstBlockStartSectionEl.hidden = !isFirstMove;
+    if (isFirstMove) setText("first-block-start-summary", formatJointSummary(state.initialPose));
+    const editFirstStartButton = document.getElementById("edit-first-start-btn");
+    const setFirstStartButton = document.getElementById("set-first-start-btn");
+    if (editFirstStartButton) editFirstStartButton.disabled = editorLocked || !isFirstMove;
+    if (setFirstStartButton) setFirstStartButton.disabled = editorLocked || !isFirstMove;
     setText("inspector-duration-label", block.type === "wait" ? "Hold duration" : "Move duration");
     setText("block-timing-help", block.type === "moveJ" ? "Drag either shared edge to pass time between neighboring blocks. The motion stops at its shortest safe duration; drag the block body to place its pose on the music." : "Drag either shared edge to pass time to a neighboring block. Collapse the wait fully to remove it.");
     blockNameInputEl.value = block.name;
@@ -34730,11 +34756,27 @@ move_frame("base", basePose, existingBaseParent)`;
   document.querySelectorAll("[data-preset]").forEach((btn) => {
     btn.addEventListener("click", () => handleAuthoredPoseChange(PRESETS[btn.dataset.preset]));
   });
-  document.getElementById("set-initial-pos-btn").addEventListener("click", () => {
-    if (!commitPoseDraft({ finish: true }).accepted) return;
+  function setCurrentAsStartPose() {
+    if (editorLocked) return false;
+    if (!commitPoseDraft({ finish: true }).accepted) return false;
     setInitialPose(getState().robotQ);
-    showToast("Start pose saved separately from Waypoint 1", "success", 5e3);
-  });
+    showToast("Starting pose set · the first motion was smoothed automatically", "success", 5e3);
+    return true;
+  }
+  function previewStartPoseForEditing() {
+    if (!commitPoseDraft({ finish: true }).accepted) return;
+    audio.pause();
+    syncPlayButtons(false);
+    audio.seekTo(0);
+    setRobotPose(getState().initialPose);
+    timeline.updatePlayhead(0, false, Math.max(audio.getDuration(), getTotalDuration(getState().waypoints)));
+    activateInspectorTab("jog");
+    queueMicrotask(() => document.getElementById("start-pose-heading")?.scrollIntoView({ block: "start" }));
+    showToast("Adjust the robot, then choose “Set start to current pose”", "info", 5e3);
+  }
+  document.getElementById("set-initial-pos-btn").addEventListener("click", setCurrentAsStartPose);
+  document.getElementById("set-first-start-btn")?.addEventListener("click", setCurrentAsStartPose);
+  document.getElementById("edit-first-start-btn")?.addEventListener("click", previewStartPoseForEditing);
   document.getElementById("goto-initial-pos-btn").addEventListener("click", () => {
     if (!commitPoseDraft({ finish: true }).accepted) return;
     setRobotPose(getState().initialPose);
@@ -34749,9 +34791,15 @@ move_frame("base", basePose, existingBaseParent)`;
     activateInspectorTab("jog");
     showToast("Previewing the start pose before Waypoint 1", "info", 3500);
   });
+  function formatJointSummary(q) {
+    return q.map((value, index) => `J${index + 1} ${(value * 180 / Math.PI).toFixed(1)}°`).join(" · ");
+  }
   function renderInitialPoseSummary(q = getState().initialPose) {
+    const summary = formatJointSummary(q);
     const output = document.getElementById("initial-pose-summary");
-    if (output) output.textContent = q.map((value, index) => `J${index + 1} ${(value * 180 / Math.PI).toFixed(1)}°`).join(" · ");
+    if (output) output.textContent = summary;
+    const firstBlockOutput = document.getElementById("first-block-start-summary");
+    if (firstBlockOutput) firstBlockOutput.textContent = summary;
   }
   var jointPasteDialog = document.getElementById("joint-paste-dialog");
   var jointPasteInput = document.getElementById("joint-paste-input");
