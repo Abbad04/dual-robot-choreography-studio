@@ -879,7 +879,7 @@ body.editor-locked #tl-open-btn{opacity:.48}
           <div class="control-card" id="block-joint-controls"></div>
           <div class="compact-actions">
             <button class="btn btn-outline" id="preview-block-btn" type="button">Edit pose</button>
-            <button class="btn btn-outline" id="update-block-btn" type="button" data-editor-mutation>Apply current pose</button>
+            <button class="btn btn-outline" id="update-block-btn" type="button" title="Use the robot pose currently shown in the preview as this block target" data-editor-mutation>Set target to current pose</button>
           </div>
         </section>
 
@@ -29761,7 +29761,7 @@ globalThis.__FR5_BUILD_METADATA__=Object.freeze({"schemaVersion":1,"robotModel":
       });
       return best;
     }
-    function recalculatePoseEdit(waypoints, index, newQ, fallbackQ = POSE_HOME2) {
+    function recalculatePoseEdit(waypoints, index, newQ, fallbackQ = POSE_HOME2, { allowTimingExpansion = false } = {}) {
       if (!Array.isArray(waypoints) || !waypoints[index] || waypoints[index].type !== "moveJ") {
         throw new Error("The selected block is not an editable MoveJ");
       }
@@ -29779,6 +29779,8 @@ globalThis.__FR5_BUILD_METADATA__=Object.freeze({"schemaVersion":1,"robotModel":
         throw new Error(`${waypoints[index].name || "MoveJ"} is infeasible: ${reason}`);
       }
       let pairTotalSteps = null;
+      let previousTotalSteps = null;
+      let timingExpanded = false;
       let editedTargetSteps = editedMinimum.wholeCallSteps;
       let nextTargetSteps = null;
       let nextMinimum = null;
@@ -29793,12 +29795,17 @@ globalThis.__FR5_BUILD_METADATA__=Object.freeze({"schemaVersion":1,"robotModel":
         if (!Number.isInteger(rawPairTotal)) {
           throw new Error("The edited pair could not preserve its existing timing");
         }
+        previousTotalSteps = rawPairTotal;
         pairTotalSteps = rawPairTotal;
         const requiredSteps = editedMinimum.wholeCallSteps + nextMinimum.wholeCallSteps;
         if (pairTotalSteps < requiredSteps) {
-          throw new Error(
-            `The edited pair needs at least ${stepsToSeconds(requiredSteps).toFixed(3)} s, but its fixed combined time is ${stepsToSeconds(pairTotalSteps).toFixed(3)} s`
-          );
+          if (!allowTimingExpansion) {
+            throw new Error(
+              `The edited pair needs at least ${stepsToSeconds(requiredSteps).toFixed(3)} s, but its fixed combined time is ${stepsToSeconds(pairTotalSteps).toFixed(3)} s`
+            );
+          }
+          pairTotalSteps = requiredSteps;
+          timingExpanded = true;
         }
         if (requiredSteps === 0) {
           if (pairTotalSteps > 0) throw new Error("A stationary pair cannot absorb the existing motion time without adding a wait");
@@ -29814,12 +29821,18 @@ globalThis.__FR5_BUILD_METADATA__=Object.freeze({"schemaVersion":1,"robotModel":
       } else {
         const originalSteps = durationStepsOf2(waypoints[index]);
         if (!Number.isInteger(originalSteps)) throw new Error("The edited motion could not preserve its existing timing");
+        previousTotalSteps = originalSteps;
         if (originalSteps < editedMinimum.wholeCallSteps) {
-          throw new Error(
-            `The edited motion needs at least ${stepsToSeconds(editedMinimum.wholeCallSteps).toFixed(3)} s, but its fixed duration is ${stepsToSeconds(originalSteps).toFixed(3)} s`
-          );
+          if (!allowTimingExpansion) {
+            throw new Error(
+              `The edited motion needs at least ${stepsToSeconds(editedMinimum.wholeCallSteps).toFixed(3)} s, but its fixed duration is ${stepsToSeconds(originalSteps).toFixed(3)} s`
+            );
+          }
+          editedTargetSteps = editedMinimum.wholeCallSteps;
+          timingExpanded = true;
+        } else {
+          editedTargetSteps = originalSteps;
         }
-        editedTargetSteps = originalSteps;
       }
       function editableSource(block, details) {
         const {
@@ -29886,6 +29899,8 @@ globalThis.__FR5_BUILD_METADATA__=Object.freeze({"schemaVersion":1,"robotModel":
         editedDurationSteps: durationStepsOf2(resolved[index]),
         nextDurationSteps: nextMoveIndex >= 0 ? durationStepsOf2(resolved[nextMoveIndex]) : null,
         pairTotalSteps,
+        previousTotalSteps,
+        timingExpanded,
         editedMinimumSteps: editedMinimum.wholeCallSteps,
         nextMinimumSteps: nextMinimum?.wholeCallSteps ?? null
       };
@@ -30152,12 +30167,18 @@ globalThis.__FR5_BUILD_METADATA__=Object.freeze({"schemaVersion":1,"robotModel":
       state = { ...state, waypoints: wps };
       notify({ type: "waypoints", reason: "rename", id });
     }
-    function updateWaypointTarget2(id, q) {
+    function updateWaypointTarget2(id, q, { allowTimingExpansion = false } = {}) {
       if (!isJointVector2(q) || !pathIsLegal2(q, q)) throw new Error(`Target pose is outside the configured ${RobotMode.profile.displayName} joint domain`);
       const index = state.waypoints.findIndex((w2) => w2.id === id);
       if (index < 0 || state.waypoints[index].type !== "moveJ") return false;
       if (state.waypoints[index].q.every((value, joint) => Math.abs(value - q[joint]) <= 1e-12)) return false;
-      const result = recalculatePoseEdit(state.waypoints, index, q, state.initialPose);
+      const result = recalculatePoseEdit(
+        state.waypoints,
+        index,
+        q,
+        state.initialPose,
+        { allowTimingExpansion }
+      );
       const affected = new Set([result.editedIndex, result.nextMoveIndex].filter((candidateIndex) => candidateIndex >= 0));
       const waypoints = result.waypoints.map(
         (block, candidateIndex) => affected.has(candidateIndex) ? withCachedPos(block) : block
@@ -30171,7 +30192,9 @@ globalThis.__FR5_BUILD_METADATA__=Object.freeze({"schemaVersion":1,"robotModel":
         editedDurationSteps: result.editedDurationSteps,
         nextMoveId: result.nextMoveIndex >= 0 ? waypoints[result.nextMoveIndex].id : null,
         nextDurationSteps: result.nextDurationSteps,
-        pairTotalSteps: result.pairTotalSteps
+        pairTotalSteps: result.pairTotalSteps,
+        previousTotalSteps: result.previousTotalSteps,
+        timingExpanded: result.timingExpanded
       });
       return {
         editedId: id,
@@ -30179,6 +30202,8 @@ globalThis.__FR5_BUILD_METADATA__=Object.freeze({"schemaVersion":1,"robotModel":
         nextMoveId: result.nextMoveIndex >= 0 ? waypoints[result.nextMoveIndex].id : null,
         nextDurationSteps: result.nextDurationSteps,
         pairTotalSteps: result.pairTotalSteps,
+        previousTotalSteps: result.previousTotalSteps,
+        timingExpanded: result.timingExpanded,
         editedMinimumSteps: result.editedMinimumSteps,
         nextMinimumSteps: result.nextMinimumSteps
       };
@@ -34080,6 +34105,10 @@ move_frame("base", basePose, existingBaseParent)`;
   function describePoseRetime(result) {
     if (!result || !Number.isFinite(result.editedDurationSteps)) return "Pose updated";
     const edited = (result.editedDurationSteps * PROFILE.controllerPeriod).toFixed(3);
+    if (result.timingExpanded) {
+      const totalSteps = Number.isFinite(result.pairTotalSteps) ? result.pairTotalSteps : result.editedDurationSteps;
+      return `Pose set · motion time adjusted to ${(totalSteps * PROFILE.controllerPeriod).toFixed(3)} s`;
+    }
     if (result.nextMoveId && Number.isFinite(result.nextDurationSteps)) {
       const next = getState().waypoints.find((block) => block.id === result.nextMoveId);
       const nextDuration = (result.nextDurationSteps * PROFILE.controllerPeriod).toFixed(3);
@@ -34397,13 +34426,21 @@ move_frame("base", basePose, existingBaseParent)`;
     const context = selectedBlockContext();
     if (context && !editorLocked) {
       try {
-        let result;
+        const currentQ = [...getState().robotQ];
         if (editingWaypointId === context.block.id) {
-          poseDraftQ = [...getState().robotQ];
-          poseDraftDirty = true;
-          result = commitPoseDraft({ finish: true }).result;
-        } else result = updateWaypointTarget(context.block.id, getState().robotQ);
-        if (result) showToast(describePoseRetime(result), "success", 5e3);
+          clearPoseDraftTimer();
+          editingWaypointId = null;
+          poseDraftQ = null;
+          poseDraftDirty = false;
+          poseEditNotice = "";
+          renderPoseEditState();
+        }
+        const result = updateWaypointTarget(
+          context.block.id,
+          currentQ,
+          { allowTimingExpansion: true }
+        );
+        showToast(result ? describePoseRetime(result) : "This block already uses the current pose", "success", 5e3);
       } catch (error) {
         showToast(`Pose edit rejected: ${error.message}`, "error", 6500);
         setRobotPose(context.block.q);
