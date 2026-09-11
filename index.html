@@ -333,10 +333,13 @@ button:disabled,input:disabled{opacity:.42;cursor:not-allowed}
 .section-heading{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:8px}
 .section-heading h2{font-size:11px;font-weight:750;letter-spacing:.03em}
 .section-heading>span{color:var(--text-muted);font-size:10px}
-.start-pose-card{margin:10px;border:1px solid rgba(56,210,231,.42);border-radius:8px;background:linear-gradient(145deg,rgba(56,210,231,.10),rgba(16,22,30,.74))}
-.start-pose-card .start-pose-clock{padding:3px 6px;color:var(--cyan);background:rgba(56,210,231,.10);border:1px solid rgba(56,210,231,.3);border-radius:999px;font:700 9px ui-monospace,SFMono-Regular,Consolas,monospace}
-.start-pose-explainer{margin:0 0 8px;color:var(--text-soft);font-size:10px;line-height:1.45}
-.joint-summary{display:block;overflow:hidden;margin-bottom:9px;padding:7px 8px;color:var(--cyan);background:rgba(5,11,17,.58);border:1px solid var(--border);border-radius:5px;font:9px/1.45 ui-monospace,SFMono-Regular,Consolas,monospace;white-space:normal}
+.start-pose-section .start-pose-clock{padding:2px 6px;color:var(--cyan);background:var(--cyan-soft);border:1px solid rgba(56,210,231,.28);border-radius:999px;font:700 8px ui-monospace,SFMono-Regular,Consolas,monospace;letter-spacing:.02em}
+.start-pose-card{position:relative;padding:9px 10px 10px;background:var(--surface-1);border:1px solid var(--border);border-radius:var(--radius)}
+.start-pose-card::before{content:"";position:absolute;left:-1px;top:9px;bottom:9px;width:2px;background:var(--cyan);border-radius:0 2px 2px 0}
+.start-pose-explainer{margin:0 0 7px;color:var(--text-muted);font-size:9px;line-height:1.35}
+.joint-summary{display:block;overflow-x:auto;margin-bottom:7px;padding:5px 7px;color:var(--cyan);background:#0b1016;border:1px solid var(--border);border-radius:4px;font:8.5px/1.35 ui-monospace,SFMono-Regular,Consolas,monospace;white-space:nowrap;scrollbar-width:thin}
+.start-pose-card .compact-actions{gap:6px;flex-wrap:nowrap}
+.start-pose-card .compact-actions .btn{min-height:30px;padding:4px 8px;font-size:10px;white-space:nowrap}
 .physical-pose-card{padding-top:12px!important}
 .control-card,.settings-list,.profile-card,.timing-facts{
   padding:10px;
@@ -782,16 +785,18 @@ body.editor-locked #tl-open-btn{opacity:.48}
         </div>
       </section>
 
-      <section class="inspector-section start-pose-card" aria-labelledby="start-pose-heading">
+      <section class="inspector-section start-pose-section" aria-labelledby="start-pose-heading">
         <div class="section-heading">
           <h2 id="start-pose-heading">Start pose</h2>
           <span class="start-pose-clock">Before 00:00</span>
         </div>
-        <p class="start-pose-explainer">This is the pose the robot starts moving from. It is separate from Waypoint 1 and outside the music clock.</p>
-        <output id="initial-pose-summary" class="joint-summary" aria-live="polite">J1 0.0° · J2 0.0° · J3 0.0° · J4 0.0° · J5 0.0° · J6 0.0°</output>
-        <div class="compact-actions">
-          <button class="btn btn-cyan" id="set-initial-pos-btn" type="button" data-editor-mutation>Set current as start</button>
-          <button class="btn btn-outline" id="goto-initial-pos-btn" type="button" data-editor-mutation>Preview start</button>
+        <div class="start-pose-card">
+          <p class="start-pose-explainer">Motion origin before Waypoint 1; it does not become a timeline block.</p>
+          <output id="initial-pose-summary" class="joint-summary" aria-live="polite">J1 0.0° · J2 0.0° · J3 0.0° · J4 0.0° · J5 0.0° · J6 0.0°</output>
+          <div class="compact-actions">
+            <button class="btn btn-cyan" id="set-initial-pos-btn" type="button" data-editor-mutation>Set current as start</button>
+            <button class="btn btn-outline" id="goto-initial-pos-btn" type="button" data-editor-mutation>Preview start</button>
+          </div>
         </div>
       </section>
 
@@ -29678,6 +29683,79 @@ globalThis.__FR5_BUILD_METADATA__=Object.freeze({"schemaVersion":1,"robotModel":
       });
       return best;
     }
+    function recalculatePoseEdit(waypoints, index, newQ, fallbackQ = POSE_HOME2) {
+      if (!Array.isArray(waypoints) || !waypoints[index] || waypoints[index].type !== "moveJ") {
+        throw new Error("The selected block is not an editable MoveJ");
+      }
+      if (!isJointVector2(newQ) || !pathIsLegal2(newQ, newQ)) {
+        throw new Error("The edited target is outside the configured joint domain");
+      }
+      const editedId = waypoints[index].id;
+      const previousQ = previousMotionQ2(waypoints, index, fallbackQ);
+      const nextMoveIndex = waypoints.findIndex(
+        (block, candidateIndex) => candidateIndex > index && block.type === "moveJ"
+      );
+      const edited = resolveMoveBlock({
+        ...waypoints[index],
+        q: [...newQ],
+        durationSteps: 0,
+        duration: 0,
+        timingMode: "fastest",
+        command: null,
+        timing: void 0,
+        _calibratedAV: void 0,
+        validation: void 0,
+        source: { format: "editor", kind: "pose-edit", derivedFrom: waypoints[index].source?.format || null }
+      }, previousQ);
+      if (edited.timing?.certified !== true) {
+        const reason = edited.timing?.certificationReasons?.join("; ") || "the constrained motion profile rejected it";
+        throw new Error(`${edited.name || "MoveJ"} is infeasible: ${reason}`);
+      }
+      const resolved = [...waypoints];
+      resolved[index] = edited;
+      if (nextMoveIndex >= 0) {
+        const next = waypoints[nextMoveIndex];
+        if (next.timingMode === "sampled") {
+          const recordedStart = next.source?.trace?.startQ;
+          const startMatches = isJointVector2(recordedStart) && recordedStart.every(
+            (value, joint) => Math.abs(value - newQ[joint]) <= 1e-7
+          );
+          if (!startMatches) {
+            throw new Error(`${next.name || "The next sampled motion"} has a fixed recorded start and cannot safely follow this edited pose`);
+          }
+          const verifiedNext = resolveMoveBlock(next, edited.q);
+          if (verifiedNext.timing?.certified !== true) {
+            const reason = verifiedNext.timing?.certificationReasons?.join("; ") || "the recorded path is no longer feasible";
+            throw new Error(`${verifiedNext.name || "The next sampled motion"} is infeasible: ${reason}`);
+          }
+          resolved[nextMoveIndex] = verifiedNext;
+        } else {
+          const verifiedNext = resolveMoveBlock({
+            ...next,
+            durationSteps: 0,
+            duration: 0,
+            timingMode: "fastest",
+            command: null,
+            timing: void 0,
+            _calibratedAV: void 0,
+            validation: void 0,
+            source: { ...next.source || {}, recalculatedAfterPoseEdit: editedId }
+          }, edited.q);
+          if (verifiedNext.timing?.certified !== true) {
+            const reason = verifiedNext.timing?.certificationReasons?.join("; ") || "the constrained motion profile rejected it";
+            throw new Error(`${verifiedNext.name || "The following MoveJ"} is infeasible: ${reason}`);
+          }
+          resolved[nextMoveIndex] = verifiedNext;
+        }
+      }
+      return {
+        waypoints: resolved,
+        editedIndex: index,
+        nextMoveIndex,
+        editedDurationSteps: durationStepsOf2(resolved[index]),
+        nextDurationSteps: nextMoveIndex >= 0 ? durationStepsOf2(resolved[nextMoveIndex]) : null
+      };
+    }
     function fixMinimumDurations(waypoints, fallbackQ = POSE_HOME2) {
       const fixed = resolveSequence(waypoints, fallbackQ);
       const changed = fixed.some((wp, i2) => {
@@ -29715,6 +29793,7 @@ globalThis.__FR5_BUILD_METADATA__=Object.freeze({"schemaVersion":1,"robotModel":
       poseAtTime: poseAtTime2,
       findReorderTarget,
       findNearestBoundaryIndex,
+      recalculatePoseEdit,
       fixMinimumDurations,
       placeBlockAtEndSteps,
       placeBlockAtEndSeconds
@@ -29735,7 +29814,8 @@ globalThis.__FR5_BUILD_METADATA__=Object.freeze({"schemaVersion":1,"robotModel":
       minDurationFor: minDurationFor2,
       durationStepsOf: durationStepsOf2,
       placeBlockAtEndSteps,
-      isAutomaticGap: isAutomaticGap2
+      isAutomaticGap: isAutomaticGap2,
+      recalculatePoseEdit
     } = Sequence;
     const { PROFILE: PROFILE2, isJointVector: isJointVector2, pathIsLegal: pathIsLegal2, secondsToSteps, stepsToSeconds } = MoveJEngine;
     let _idCounter = 0;
@@ -29927,32 +30007,28 @@ globalThis.__FR5_BUILD_METADATA__=Object.freeze({"schemaVersion":1,"robotModel":
       if (!isJointVector2(q) || !pathIsLegal2(q, q)) throw new Error(`Target pose is outside the configured ${RobotMode.profile.displayName} joint domain`);
       const index = state.waypoints.findIndex((w2) => w2.id === id);
       if (index < 0 || state.waypoints[index].type !== "moveJ") return false;
-      const priorTimed = withTimestamps2(state.waypoints)[index];
-      const priorDurationSteps = durationStepsOf2(state.waypoints[index]);
+      if (state.waypoints[index].q.every((value, joint) => Math.abs(value - q[joint]) <= 1e-12)) return false;
+      const result = recalculatePoseEdit(state.waypoints, index, q, state.initialPose);
+      const affected = new Set([result.editedIndex, result.nextMoveIndex].filter((candidateIndex) => candidateIndex >= 0));
+      const waypoints = result.waypoints.map(
+        (block, candidateIndex) => affected.has(candidateIndex) ? withCachedPos(block) : block
+      );
       pushHistory();
-      const edited = state.waypoints.map((w2) => w2.id === id ? withCachedPos({
-        ...w2,
-        q: [...q],
-        durationSteps: priorDurationSteps,
-        duration: stepsToSeconds(priorDurationSteps),
-        timingMode: "authored",
-        command: null,
-        source: { format: "editor", kind: "pose-edit", derivedFrom: w2.source?.format || null },
-        timing: void 0
-      }) : w2);
-      let waypoints = resolveSequence(edited, state.initialPose);
-      const placed = placeBlockAtEndSteps(waypoints, index, priorTimed.endSteps, makeId);
-      waypoints = placed.waypoints.map(withCachedPos);
       state = { ...state, waypoints, selectedId: id };
       notify({
         type: "waypoints",
         reason: "target",
         id,
-        requestedEndSteps: priorTimed.endSteps,
-        actualEndSteps: placed.actualEndSteps,
-        arrivalShifted: placed.actualEndSteps !== priorTimed.endSteps
+        editedDurationSteps: result.editedDurationSteps,
+        nextMoveId: result.nextMoveIndex >= 0 ? waypoints[result.nextMoveIndex].id : null,
+        nextDurationSteps: result.nextDurationSteps
       });
-      return true;
+      return {
+        editedId: id,
+        editedDurationSteps: result.editedDurationSteps,
+        nextMoveId: result.nextMoveIndex >= 0 ? waypoints[result.nextMoveIndex].id : null,
+        nextDurationSteps: result.nextDurationSteps
+      };
     }
     function setBlockDurationSteps2(id, requestedSteps) {
       const index = state.waypoints.findIndex((w2) => w2.id === id);
@@ -33786,10 +33862,13 @@ move_frame("base", basePose, existingBaseParent)`;
   }
   undoButtonEl?.addEventListener("click", () => {
     if (editorLocked) return;
+    const outcome = commitPoseDraft({ finish: true });
+    if (!outcome.accepted) return;
     if (!undo()) showToast("Nothing to undo", "info");
   });
   redoButtonEl?.addEventListener("click", () => {
     if (editorLocked) return;
+    discardPoseDraft();
     if (!redo()) showToast("Nothing to redo", "info");
   });
   var blockInspectorEl = document.getElementById("block-inspector");
@@ -33806,6 +33885,17 @@ move_frame("base", basePose, existingBaseParent)`;
   var poseDraftQ = null;
   var poseDraftDirty = false;
   var poseDraftTimer = null;
+  var poseEditNotice = "";
+  function describePoseRetime(result) {
+    if (!result || !Number.isFinite(result.editedDurationSteps)) return "Pose updated";
+    const edited = (result.editedDurationSteps * PROFILE.controllerPeriod).toFixed(3);
+    if (result.nextMoveId && Number.isFinite(result.nextDurationSteps)) {
+      const next = getState().waypoints.find((block) => block.id === result.nextMoveId);
+      const nextDuration = (result.nextDurationSteps * PROFILE.controllerPeriod).toFixed(3);
+      return `Accepted · this move ${edited} s · ${next?.name || "next move"} ${nextDuration} s`;
+    }
+    return `Accepted · this move retimed to ${edited} s`;
+  }
   function renderPoseEditState() {
     const banner = document.getElementById("pose-edit-banner");
     if (!banner) return;
@@ -33813,7 +33903,7 @@ move_frame("base", basePose, existingBaseParent)`;
     banner.hidden = !block;
     if (!block) return;
     setText("pose-edit-title", `Editing ${block.name}`);
-    setText("pose-edit-status", poseDraftDirty ? "Pose changed. Choose Save to write it to the project file." : "Joint and tool controls are linked to this MoveJ.");
+    setText("pose-edit-status", poseDraftDirty ? "Previewing the new target. Feasibility and both affected durations will be checked automatically." : poseEditNotice || "Joint and tool controls are linked to this MoveJ.");
   }
   function clearPoseDraftTimer() {
     if (poseDraftTimer != null) {
@@ -33823,32 +33913,56 @@ move_frame("base", basePose, existingBaseParent)`;
   }
   function commitPoseDraft({ finish = false } = {}) {
     clearPoseDraftTimer();
+    let outcome = { accepted: true, changed: false, result: null };
     if (editingWaypointId && poseDraftDirty && Array.isArray(poseDraftQ)) {
       const id = editingWaypointId;
-      updateWaypointTarget(id, poseDraftQ);
-      poseDraftDirty = false;
+      const stored = getState().waypoints.find((block) => block.id === id);
+      try {
+        const result = updateWaypointTarget(id, poseDraftQ);
+        poseDraftDirty = false;
+        poseEditNotice = describePoseRetime(result);
+        outcome = { accepted: true, changed: Boolean(result), result };
+      } catch (error) {
+        poseDraftDirty = false;
+        poseEditNotice = `Rejected · ${error.message}`;
+        if (stored?.q) {
+          poseDraftQ = [...stored.q];
+          setRobotPose(stored.q);
+        }
+        showToast(`Pose edit rejected: ${error.message}`, "error", 6500);
+        outcome = { accepted: false, changed: false, result: null, error };
+      }
     }
     if (finish) {
       editingWaypointId = null;
       poseDraftQ = null;
       poseDraftDirty = false;
+      poseEditNotice = "";
     }
     renderPoseEditState();
+    return outcome;
   }
   function discardPoseDraft() {
+    const stored = editingWaypointId ? getState().waypoints.find((block) => block.id === editingWaypointId) : null;
     clearPoseDraftTimer();
     editingWaypointId = null;
     poseDraftQ = null;
     poseDraftDirty = false;
+    poseEditNotice = "";
+    if (stored?.q) setRobotPose(stored.q);
     renderPoseEditState();
   }
   function beginPoseEdit(id) {
+    if (editingWaypointId && editingWaypointId !== id) {
+      const outcome = commitPoseDraft({ finish: true });
+      if (!outcome.accepted) return;
+    }
     const block = getState().waypoints.find((item) => item.id === id && item.type === "moveJ");
     if (!block) return;
-    commitPoseDraft({ finish: true });
     editingWaypointId = id;
     poseDraftQ = [...block.q];
     poseDraftDirty = false;
+    poseEditNotice = "";
     setRobotPose(block.q);
     activateInspectorTab("jog");
     renderPoseEditState();
@@ -33858,7 +33972,7 @@ move_frame("base", basePose, existingBaseParent)`;
     if (!editingWaypointId || getState().selectedId !== editingWaypointId) return;
     poseDraftQ = [...q];
     poseDraftDirty = true;
-    markDocumentDirty(true);
+    poseEditNotice = "";
     renderPoseEditState();
     clearPoseDraftTimer();
     poseDraftTimer = setTimeout(() => commitPoseDraft(), 600);
@@ -33866,6 +33980,15 @@ move_frame("base", basePose, existingBaseParent)`;
   function selectWaypointSafely(id) {
     if (editingWaypointId && editingWaypointId !== id) commitPoseDraft({ finish: true });
     selectWaypoint(id);
+  }
+  function removeWaypointSafely(id) {
+    if (editingWaypointId === id) discardPoseDraft();
+    else if (editingWaypointId && !commitPoseDraft({ finish: true }).accepted) return false;
+    removeWaypoint(id);
+    return true;
+  }
+  function settlePoseDraftForMutation() {
+    return !editingWaypointId || commitPoseDraft({ finish: true }).accepted;
   }
   function selectedBlockContext(state = getState()) {
     const timed = withTimestamps(state.waypoints);
@@ -33910,7 +34033,8 @@ move_frame("base", basePose, existingBaseParent)`;
         const q = [...context.block.q];
         q[jointIndex] = degrees * Math.PI / 180;
         try {
-          updateWaypointTarget(block.id, q);
+          const result = updateWaypointTarget(block.id, q);
+          if (result) showToast(describePoseRetime(result), "success", 4500);
         } catch (error) {
           showToast(error.message, "error", 5e3);
           input.value = (context.block.q[jointIndex] * 180 / Math.PI).toFixed(2);
@@ -34002,7 +34126,7 @@ move_frame("base", basePose, existingBaseParent)`;
   }
   blockNameInputEl?.addEventListener("change", () => {
     const context = selectedBlockContext();
-    if (context && !editorLocked) renameWaypoint(context.block.id, blockNameInputEl.value);
+    if (context && !editorLocked && settlePoseDraftForMutation()) renameWaypoint(context.block.id, blockNameInputEl.value);
   });
   function durationLimitHint(context) {
     const blocks = getState().waypoints;
@@ -34021,7 +34145,7 @@ move_frame("base", basePose, existingBaseParent)`;
   }
   blockDurationInputEl?.addEventListener("change", () => {
     const context = selectedBlockContext();
-    if (!context || editorLocked) return;
+    if (!context || editorLocked || !settlePoseDraftForMutation()) return;
     const seconds = Number(blockDurationInputEl.value);
     if (Number.isFinite(seconds) && seconds > 0) {
       const requested = Math.round(seconds / PROFILE.controllerPeriod);
@@ -34032,7 +34156,7 @@ move_frame("base", basePose, existingBaseParent)`;
   });
   blockStepsInputEl?.addEventListener("change", () => {
     const context = selectedBlockContext();
-    if (!context || editorLocked) return;
+    if (!context || editorLocked || !settlePoseDraftForMutation()) return;
     const requested = Math.round(Number(blockStepsInputEl.value) || 0);
     setBlockDurationSteps(context.block.id, requested);
     const actual = getState().waypoints.find((block) => block.id === context.block.id)?.durationSteps;
@@ -34040,7 +34164,7 @@ move_frame("base", basePose, existingBaseParent)`;
   });
   function placeSelectedPoseAt(seconds) {
     const context = selectedBlockContext();
-    if (!context || context.block.type !== "moveJ" || editorLocked) return;
+    if (!context || context.block.type !== "moveJ" || editorLocked || !settlePoseDraftForMutation()) return;
     const requestedSteps = Math.round(Math.max(0, Number(seconds) || 0) / PROFILE.controllerPeriod);
     const result = moveBlockTargetEndSteps(context.block.id, requestedSteps);
     if (result?.limited) {
@@ -34056,7 +34180,7 @@ move_frame("base", basePose, existingBaseParent)`;
   });
   document.getElementById("block-minimum-btn")?.addEventListener("click", () => {
     const context = selectedBlockContext();
-    if (context && !editorLocked) setBlockToMinimum(context.block.id);
+    if (context && !editorLocked && settlePoseDraftForMutation()) setBlockToMinimum(context.block.id);
   });
   document.getElementById("preview-block-btn")?.addEventListener("click", () => {
     const context = selectedBlockContext();
@@ -34065,37 +34189,42 @@ move_frame("base", basePose, existingBaseParent)`;
   document.getElementById("update-block-btn")?.addEventListener("click", () => {
     const context = selectedBlockContext();
     if (context && !editorLocked) {
-      if (editingWaypointId === context.block.id) {
-        poseDraftQ = [...getState().robotQ];
-        poseDraftDirty = true;
-        commitPoseDraft({ finish: true });
-      } else updateWaypointTarget(context.block.id, getState().robotQ);
-      showToast("Pose changes applied to the selected MoveJ", "success");
+      try {
+        let result;
+        if (editingWaypointId === context.block.id) {
+          poseDraftQ = [...getState().robotQ];
+          poseDraftDirty = true;
+          result = commitPoseDraft({ finish: true }).result;
+        } else result = updateWaypointTarget(context.block.id, getState().robotQ);
+        if (result) showToast(describePoseRetime(result), "success", 5e3);
+      } catch (error) {
+        showToast(`Pose edit rejected: ${error.message}`, "error", 6500);
+        setRobotPose(context.block.q);
+      }
     }
   });
   document.getElementById("finish-pose-edit-btn")?.addEventListener("click", () => {
-    commitPoseDraft({ finish: true });
-    showToast("Pose changes saved to the selected MoveJ", "success");
+    const outcome = commitPoseDraft({ finish: true });
+    if (outcome.accepted && outcome.result) showToast(describePoseRetime(outcome.result), "success", 5e3);
   });
   document.getElementById("duplicate-block-btn")?.addEventListener("click", () => {
     const context = selectedBlockContext();
-    if (context && !editorLocked) duplicateWaypoint(context.block.id);
+    if (context && !editorLocked && settlePoseDraftForMutation()) duplicateWaypoint(context.block.id);
   });
   moveBlockEarlierButtonEl?.addEventListener("click", () => {
     const context = selectedBlockContext();
-    if (context && !editorLocked && context.index > 0) reorderBlock(context.block.id, context.index - 1);
+    if (context && !editorLocked && context.index > 0 && settlePoseDraftForMutation()) reorderBlock(context.block.id, context.index - 1);
   });
   moveBlockLaterButtonEl?.addEventListener("click", () => {
     const context = selectedBlockContext();
-    if (context && !editorLocked && context.index < getState().waypoints.length - 1) {
+    if (context && !editorLocked && context.index < getState().waypoints.length - 1 && settlePoseDraftForMutation()) {
       reorderBlock(context.block.id, context.index + 1);
     }
   });
   document.getElementById("delete-block-btn")?.addEventListener("click", () => {
     const context = selectedBlockContext();
     if (context && !editorLocked) {
-      if (editingWaypointId === context.block.id) discardPoseDraft();
-      removeWaypoint(context.block.id);
+      removeWaypointSafely(context.block.id);
     }
   });
   var hX = document.getElementById("h-x");
@@ -34188,7 +34317,7 @@ move_frame("base", basePose, existingBaseParent)`;
       xBtn.setAttribute("aria-label", `Delete ${wp.name}`);
       xBtn.addEventListener("click", (e2) => {
         e2.stopPropagation();
-        removeWaypoint(wp.id);
+        removeWaypointSafely(wp.id);
       });
       li.addEventListener("click", () => selectWaypointSafely(wp.id));
       main.append(num, badge, body, xBtn);
@@ -34330,16 +34459,16 @@ move_frame("base", basePose, existingBaseParent)`;
     btn.addEventListener("click", () => handleAuthoredPoseChange(PRESETS[btn.dataset.preset]));
   });
   document.getElementById("set-initial-pos-btn").addEventListener("click", () => {
-    commitPoseDraft({ finish: true });
+    if (!commitPoseDraft({ finish: true }).accepted) return;
     setInitialPose(getState().robotQ);
     showToast("Start pose saved separately from Waypoint 1", "success", 5e3);
   });
   document.getElementById("goto-initial-pos-btn").addEventListener("click", () => {
-    commitPoseDraft({ finish: true });
+    if (!commitPoseDraft({ finish: true }).accepted) return;
     setRobotPose(getState().initialPose);
   });
   document.getElementById("tl-start-pose-btn")?.addEventListener("click", () => {
-    commitPoseDraft({ finish: true });
+    if (!commitPoseDraft({ finish: true }).accepted) return;
     audio.pause();
     syncPlayButtons(false);
     audio.seekTo(0);
@@ -34396,7 +34525,7 @@ move_frame("base", basePose, existingBaseParent)`;
   function applyJointPaste({ asStart = false } = {}) {
     try {
       const q = parsePastedJointReadout(jointPasteInput.value, jointPasteUnits.value);
-      commitPoseDraft({ finish: true });
+      if (!commitPoseDraft({ finish: true }).accepted) return;
       setRobotPose(q);
       if (asStart) setInitialPose(q);
       closeJointPasteDialog();
@@ -34460,6 +34589,7 @@ move_frame("base", basePose, existingBaseParent)`;
       showToast("Editing is locked while the UR20 run is active", "warn");
       return;
     }
+    if (!settlePoseDraftForMutation()) return;
     const t2 = audio.getCurrentTime();
     const ctx = getInsertionContext(t2);
     const q = type === "moveJ" ? [...getState().robotQ] : null;
@@ -34533,6 +34663,7 @@ move_frame("base", basePose, existingBaseParent)`;
     onBlockClick: (id) => selectWaypointSafely(id),
     onBlockDblClick: (id, labelEl, currentName) => startInlineRename(labelEl, id, currentName),
     onResize: (id, side, duration, requestedDuration) => {
+      if (!settlePoseDraftForMutation()) return;
       const context = selectedBlockContext();
       const attemptedSteps = Math.round(Math.max(0, Number(requestedDuration ?? duration) || 0) / PROFILE.controllerPeriod);
       resizeBlockEdge(id, side, duration);
@@ -34540,6 +34671,7 @@ move_frame("base", basePose, existingBaseParent)`;
       if (context?.block.id === id) showDurationLimit(context, attemptedSteps, actual);
     },
     onMoveTime: (id, endSeconds) => {
+      if (!settlePoseDraftForMutation()) return null;
       const result = moveBlockTargetEndSteps(id, Math.round(endSeconds / PROFILE.controllerPeriod));
       if (result?.limited) {
         showToast(`Earliest safe arrival is ${timeline.fmtTime(result.actualEndSteps * PROFILE.controllerPeriod)}.`, "warn", 5e3);
@@ -34548,7 +34680,9 @@ move_frame("base", basePose, existingBaseParent)`;
       }
       return result;
     },
-    onReorder: (id, toIndex) => reorderBlock(id, toIndex)
+    onReorder: (id, toIndex) => {
+      if (settlePoseDraftForMutation()) reorderBlock(id, toIndex);
+    }
   });
   audio.initAudio(document.getElementById("ws-container"));
   function renderClockSource() {
@@ -34699,7 +34833,7 @@ move_frame("base", basePose, existingBaseParent)`;
   async function requestPlayback() {
     if (audio.getIsPlaying() || LiveSync.isActive()) return;
     pendingPlaybackEndTime = null;
-    commitPoseDraft();
+    if (!commitPoseDraft().accepted) return;
     const end = Math.max(audio.getDuration(), getTotalDuration(getState().waypoints));
     if (!(end > 0)) return;
     if (!liveEnabledEl.checked) {
@@ -35305,7 +35439,7 @@ move_frame("base", basePose, existingBaseParent)`;
   }
   async function smartSaveProject(options = {}) {
     if (portableSaveInFlight) return;
-    commitPoseDraft();
+    if (!commitPoseDraft().accepted) return;
     const forcePicker = Boolean(options && options.forcePicker);
     const state = getState();
     if (!state.waypoints.length && !audio.hasAudio()) {
@@ -35457,11 +35591,14 @@ move_frame("base", basePose, existingBaseParent)`;
     }
     if (mod && key === "z" && !e2.shiftKey) {
       e2.preventDefault();
+      const outcome = commitPoseDraft({ finish: true });
+      if (!outcome.accepted) return;
       if (!undo()) showToast("Nothing to undo", "info");
       return;
     }
     if (mod && (key === "y" || key === "z" && e2.shiftKey)) {
       e2.preventDefault();
+      discardPoseDraft();
       if (!redo()) showToast("Nothing to redo", "info");
       return;
     }
@@ -35474,7 +35611,11 @@ move_frame("base", basePose, existingBaseParent)`;
     if (mod && key === "x") {
       e2.preventDefault();
       const id = getState().selectedId;
-      if (id && cutWaypoint(id)) showToast("Cut", "info");
+      if (id) {
+        if (editingWaypointId === id) discardPoseDraft();
+        else if (!settlePoseDraftForMutation()) return;
+        if (cutWaypoint(id)) showToast("Cut", "info");
+      }
       return;
     }
     if (mod && key === "v") {
@@ -35483,6 +35624,7 @@ move_frame("base", basePose, existingBaseParent)`;
         showToast("Nothing to paste", "warn");
         return;
       }
+      if (!settlePoseDraftForMutation()) return;
       pasteAt(audio.getCurrentTime());
       showToast("Pasted", "success");
       return;
@@ -35507,9 +35649,8 @@ move_frame("base", basePose, existingBaseParent)`;
     }
     if (e2.key === "Delete") {
       const id = getState().selectedId;
-      if (id) {
+      if (id && removeWaypointSafely(id)) {
         e2.preventDefault();
-        removeWaypoint(id);
         showToast("Deleted", "info");
       }
       return;
