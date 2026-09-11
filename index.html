@@ -323,7 +323,7 @@ button:disabled,input:disabled{opacity:.42;cursor:not-allowed}
 .pose-edit-banner[hidden]{display:none}
 .pose-edit-banner strong,.pose-edit-banner span{display:block}
 .pose-edit-banner strong{color:var(--cyan);font-size:11px}
-.pose-edit-banner span{margin-top:2px;color:var(--text-muted);font-size:10px;line-height:1.4}
+.pose-edit-banner span{margin-top:2px;color:var(--text-muted);font-size:9px;line-height:1.35}
 .pose-edit-banner .btn{min-height:30px;flex:0 0 auto}
 .kbd-hint,.block-index{
   padding:4px 7px;color:var(--text-muted);background:var(--surface-1);
@@ -336,8 +336,8 @@ button:disabled,input:disabled{opacity:.42;cursor:not-allowed}
 .start-pose-section .start-pose-clock{padding:2px 6px;color:var(--cyan);background:var(--cyan-soft);border:1px solid rgba(56,210,231,.28);border-radius:999px;font:700 8px ui-monospace,SFMono-Regular,Consolas,monospace;letter-spacing:.02em}
 .start-pose-card{position:relative;padding:9px 10px 10px;background:var(--surface-1);border:1px solid var(--border);border-radius:var(--radius)}
 .start-pose-card::before{content:"";position:absolute;left:-1px;top:9px;bottom:9px;width:2px;background:var(--cyan);border-radius:0 2px 2px 0}
-.start-pose-explainer{margin:0 0 7px;color:var(--text-muted);font-size:10px;line-height:1.4}
-.joint-summary{display:block;overflow-x:auto;margin-bottom:7px;padding:5px 7px;color:var(--cyan);background:#0b1016;border:1px solid var(--border);border-radius:4px;font:10px/1.4 ui-monospace,SFMono-Regular,Consolas,monospace;white-space:nowrap;scrollbar-width:thin}
+.start-pose-explainer{margin:0 0 7px;color:var(--text-muted);font-size:9px;line-height:1.35}
+.joint-summary{display:block;overflow-x:auto;margin-bottom:7px;padding:5px 7px;color:var(--cyan);background:#0b1016;border:1px solid var(--border);border-radius:4px;font:8.5px/1.35 ui-monospace,SFMono-Regular,Consolas,monospace;white-space:nowrap;scrollbar-width:thin}
 .start-pose-card .compact-actions{gap:6px;flex-wrap:nowrap}
 .start-pose-card .compact-actions .btn{min-height:30px;padding:4px 8px;font-size:10px;white-space:nowrap}
 .physical-pose-card{padding-top:12px!important}
@@ -372,7 +372,7 @@ button:disabled,input:disabled{opacity:.42;cursor:not-allowed}
 }
 .precision-row+ .precision-row,.sl-row+ .sl-row{border-top:1px solid rgba(38,50,64,.58)}
 .precision-row label,.sl-key{color:var(--text-soft);font-size:11px;font-weight:700}
-.sl-val{display:none}
+.legacy-readout,.sl-val{display:none}
 input[type=range]{
   appearance:none;width:100%;height:3px;
   background:linear-gradient(90deg,var(--cyan) var(--pct,50%),var(--surface-4) var(--pct,50%));
@@ -409,13 +409,13 @@ input[type=number]:focus,input[type=text]:focus{border-color:var(--cyan)}
 .block-time-summary{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:20px}
 .block-time-summary>div,.live-metric{display:flex;flex-direction:column;gap:2px}
 .block-time-summary>div{padding:10px;background:var(--surface-1);border:1px solid var(--border);border-radius:var(--radius)}
-.block-time-summary span,.live-metric span,.timing-facts span{color:var(--text-muted);font-size:10px;text-transform:uppercase;letter-spacing:.08em}
+.block-time-summary span,.live-metric span,.timing-facts span{color:var(--text-muted);font-size:9px;text-transform:uppercase;letter-spacing:.08em}
 .block-time-summary strong{font:11px ui-monospace,SFMono-Regular,Consolas,monospace}
 .timing-editor{display:grid;grid-template-columns:1fr 128px;align-items:center;gap:7px 12px;margin-bottom:9px}
 .timing-editor>label{color:var(--text-soft);font-size:11px}
 .pose-time-editor{margin-top:12px;padding-top:11px;border-top:1px solid var(--border)}
 .pose-time-editor .btn{min-height:34px}
-.timing-help{margin:2px 0 10px;color:var(--text-muted);font-size:10px;line-height:1.5}
+.timing-help{margin:2px 0 10px;color:var(--text-muted);font-size:9px;line-height:1.45}
 .input-with-unit{display:flex;align-items:center;background:#0b1016;border:1px solid var(--border);border-radius:var(--radius-sm)}
 .input-with-unit:focus-within{border-color:var(--cyan)}
 .input-with-unit input{min-width:0;width:100%;border:0;background:transparent;text-align:right}
@@ -446,16 +446,15 @@ input[type=checkbox],input[type=radio]{width:17px;height:17px;accent-color:var(-
 
 /* Sequence list */
 #wp-ul{display:flex;flex-direction:column;gap:5px;list-style:none;padding:0}
-.wp-li{position:relative;border:1px solid var(--border);border-radius:var(--radius);background:var(--surface-1);cursor:pointer;transition:all var(--ease)}
+.wp-li{border:1px solid var(--border);border-radius:var(--radius);background:var(--surface-1);cursor:pointer;transition:all var(--ease)}
 .wp-li:hover{border-color:var(--border-strong);background:var(--surface-2)}
 .wp-li.sel{border-color:var(--cyan);background:var(--cyan-soft)}
-.wp-li.editing::before{content:"";position:absolute;left:-1px;top:7px;bottom:7px;width:2px;background:var(--amber);border-radius:0 2px 2px 0}
 .wp-main{display:flex;align-items:center;gap:8px;padding:8px}
 .wp-num{width:22px;color:var(--text-muted);font:10px ui-monospace,SFMono-Regular,Consolas,monospace;text-align:center}
 .wp-type{display:grid;place-items:center;width:22px;height:22px;border-radius:4px;font:800 9px ui-monospace,SFMono-Regular,Consolas,monospace}
 .wp-type-j{color:var(--cyan);background:var(--cyan-soft)}.wp-type-w{color:var(--amber);background:var(--amber-soft)}
 .wp-body{min-width:0;flex:1}.wp-name{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:11px;font-weight:650}
-.wp-coords{margin-top:2px;color:var(--text-muted);font:10px ui-monospace,SFMono-Regular,Consolas,monospace}
+.wp-coords{margin-top:2px;color:var(--text-muted);font:9px ui-monospace,SFMono-Regular,Consolas,monospace}
 .wp-val{display:inline-block;margin-top:4px;padding:2px 5px;border-radius:3px;font-size:8px;font-weight:700}
 .wp-val-estimated{color:var(--cyan);background:var(--cyan-soft)}.wp-val-converged{color:var(--green);background:var(--green-soft)}.wp-val-impossible{color:var(--red);background:var(--red-soft)}
 .wp-x{display:grid;place-items:center;width:30px;height:30px;color:var(--text-muted);background:transparent;border:0;border-radius:5px;cursor:pointer}
@@ -769,7 +768,7 @@ body.editor-locked #tl-open-btn{opacity:.48}
       <div class="pose-edit-banner" id="pose-edit-banner" role="status" hidden>
         <div>
           <strong id="pose-edit-title">Editing selected pose</strong>
-          <span id="pose-edit-status">Adjust joints, tool position, or a quick pose below. Changes save to this block automatically, a moment after you stop moving it.</span>
+          <span id="pose-edit-status">Joint and tool controls now update this MoveJ.</span>
         </div>
         <button class="btn btn-cyan" id="finish-pose-edit-btn" type="button" data-editor-mutation>Done</button>
       </div>
@@ -820,16 +819,19 @@ body.editor-locked #tl-open-btn{opacity:.48}
             <label for="sl-x">X</label>
             <input type="range" id="sl-x" min="-1.5" max="1.5" step="0.001" value="0">
             <input type="number" id="num-x" min="-1.5" max="1.5" step="0.001" value="0.000" inputmode="decimal" aria-label="Tool X position in meters">
+            <span class="legacy-readout" id="v-x">0.000</span>
           </div>
           <div class="precision-row">
             <label for="sl-y">Y</label>
             <input type="range" id="sl-y" min="-1.5" max="1.5" step="0.001" value="0">
             <input type="number" id="num-y" min="-1.5" max="1.5" step="0.001" value="0.000" inputmode="decimal" aria-label="Tool Y position in meters">
+            <span class="legacy-readout" id="v-y">0.000</span>
           </div>
           <div class="precision-row">
             <label for="sl-z">Z</label>
             <input type="range" id="sl-z" min="-0.2" max="2.2" step="0.001" value="0">
             <input type="number" id="num-z" min="-0.2" max="2.2" step="0.001" value="0.000" inputmode="decimal" aria-label="Tool Z position in meters">
+            <span class="legacy-readout" id="v-z">0.000</span>
           </div>
         </div>
       </section>
@@ -876,10 +878,9 @@ body.editor-locked #tl-open-btn{opacity:.48}
           </div>
           <div class="control-card" id="block-joint-controls"></div>
           <div class="compact-actions">
-            <button class="btn btn-outline" id="preview-block-btn" type="button" title="Open the jog controls, starting from this block's pose">Edit pose</button>
-            <button class="btn btn-outline" id="update-block-btn" type="button" data-editor-mutation title="Replace this block's pose with wherever the robot is posed right now">Apply current pose</button>
+            <button class="btn btn-outline" id="preview-block-btn" type="button">Edit pose</button>
+            <button class="btn btn-outline" id="update-block-btn" type="button" data-editor-mutation>Apply current pose</button>
           </div>
-          <p class="timing-help">Edit pose jogs from this block's own target. Apply current pose instead snaps it to whatever pose the robot is showing right now.</p>
         </section>
 
         <section class="inspector-section">
@@ -887,8 +888,8 @@ body.editor-locked #tl-open-btn{opacity:.48}
             <h2>Timing</h2>
             <span id="block-timing-status" class="verified-text">Solved</span>
           </div>
-          <div class="timing-editor" id="wait-duration-editor" hidden>
-            <label for="inspector-duration-input" id="inspector-duration-label">Hold duration</label>
+          <div class="timing-editor">
+            <label for="inspector-duration-input" id="inspector-duration-label">Move duration</label>
             <div class="input-with-unit">
               <input type="number" id="inspector-duration-input" min="0.002" step="0.002" inputmode="decimal" data-editor-mutation>
               <span>s</span>
@@ -908,15 +909,14 @@ body.editor-locked #tl-open-btn{opacity:.48}
             <span></span>
             <button class="btn btn-outline" id="move-pose-to-playhead-btn" type="button" data-editor-mutation>Use playhead time</button>
           </div>
-          <p class="timing-help" id="block-timing-help">This robot always moves as fast as it safely can between poses. To change when a pose lands in time, drag this block on the timeline or set an arrival time above.</p>
+          <p class="timing-help" id="block-timing-help">Type a duration or drag the block's right edge. Expansion shortens the next motion by the same time; drag the block body to place its pose on the music.</p>
           <div class="timing-facts">
-            <div id="move-duration-fact"><span id="block-duration-label">Move duration</span><strong id="block-duration-value">—</strong></div>
-            <div id="move-steps-fact"><span>Controller steps</span><strong id="block-steps-value">—</strong></div>
             <div><span>Acceleration</span><strong id="block-a-value">—</strong></div>
             <div><span>Velocity</span><strong id="block-v-value">—</strong></div>
             <div><span>Profile</span><strong id="block-regime-value">—</strong></div>
             <div><span>Minimum</span><strong id="block-min-value">—</strong></div>
           </div>
+          <button class="btn btn-outline btn-full" id="block-minimum-btn" type="button" data-editor-mutation>Set to minimum feasible time</button>
         </section>
 
         <section class="inspector-section">
@@ -31132,7 +31132,7 @@ globalThis.__FR5_BUILD_METADATA__=Object.freeze({"schemaVersion":1,"robotModel":
         if (el[`sl${upper}`]) {
           el[`sl${upper}`].value = ep[i2].toFixed(3);
           if (el[`num${upper}`]) el[`num${upper}`].value = ep[i2].toFixed(3);
-          if (el[`v${upper}`]) el[`v${upper}`].textContent = ep[i2].toFixed(3);
+          el[`v${upper}`].textContent = ep[i2].toFixed(3);
           updateGradient(el[`sl${upper}`]);
         }
       });
@@ -33457,9 +33457,8 @@ move_frame("base", basePose, existingBaseParent)`;
         if (dp >= 150) meta.append(cue);
         body.append(nm, meta);
         const rh = document.createElement("div");
-        const resizeLocked = isAutoGap || wp.type === "moveJ";
-        rh.className = "tl-rz-r" + (resizeLocked ? " disabled" : "");
-        rh.title = isAutoGap ? "Automatic timing filler" : wp.type === "moveJ" ? "Duration is fixed to the robot's fastest safe motion" : "Drag to change hold duration";
+        rh.className = "tl-rz-r" + (isAutoGap ? " disabled" : "");
+        rh.title = isAutoGap ? "Automatic timing filler" : wp.type === "moveJ" ? "Drag to change duration; expansion shortens the next motion" : "Drag to change hold duration";
         blk.append(lh, body, rh);
         body.addEventListener("dblclick", (e2) => {
           e2.stopPropagation();
@@ -33488,7 +33487,7 @@ move_frame("base", basePose, existingBaseParent)`;
             lastClientY: e2.clientY
           };
         });
-        if (!resizeLocked) {
+        if (!isAutoGap) {
           rh.addEventListener("mousedown", (e2) => {
             e2.stopPropagation();
             e2.preventDefault();
@@ -33964,13 +33963,12 @@ move_frame("base", basePose, existingBaseParent)`;
     const currentState = getState();
     const block = editingWaypointId ? currentState.waypoints.find((item) => item.id === editingWaypointId) : null;
     banner.hidden = !block;
-    updateWPListEditing();
     if (!block) return;
     const blockIndex = currentState.waypoints.findIndex((item) => item.id === editingWaypointId);
     const nextMove = blockIndex < 0 ? null : currentState.waypoints.find((item, index) => index > blockIndex && item.type === "moveJ");
     const replacesSamples = block.timingMode === "sampled" || nextMove?.timingMode === "sampled";
     setText("pose-edit-title", `Editing ${block.name}`);
-    setText("pose-edit-status", poseDraftDirty ? "Previewing the new target. The two affected durations will share their existing combined time automatically." : poseEditNotice || (replacesSamples ? "Imported samples will become constrained MoveJ commands. Combined time stays fixed, and Undo restores the traces." : "Adjust joints, tool position, or a quick pose below. Changes save to this block automatically, a moment after you stop moving it."));
+    setText("pose-edit-status", poseDraftDirty ? "Previewing the new target. The two affected durations will share their existing combined time automatically." : poseEditNotice || (replacesSamples ? "Imported samples will become constrained MoveJ commands. Combined time stays fixed, and Undo restores the traces." : "Joint and tool controls are linked to this MoveJ."));
   }
   function clearPoseDraftTimer() {
     if (poseDraftTimer != null) {
@@ -34133,28 +34131,18 @@ move_frame("base", basePose, existingBaseParent)`;
     setText("block-end-label", block.type === "moveJ" ? "Pose reached" : "Hold ends");
     setText("block-start-value", timeline.fmtTime(block.start));
     setText("block-end-value", timeline.fmtTime(block.end));
-    setText("block-timing-help", block.type === "moveJ" ? "This robot always moves as fast as it safely can between poses. To change when a pose lands in time, drag this block on the timeline or set an arrival time above." : getDurationEditMode() === "ripple" ? "Type a duration or drag the right edge. Every later block shifts together." : "Type a duration or drag the right edge. Later block times stay fixed.");
+    setText("inspector-duration-label", block.type === "wait" ? "Hold duration" : "Move duration");
+    setText("block-timing-help", block.type === "moveJ" ? getDurationEditMode() === "ripple" ? "Type a duration or drag the right edge. Every later pose shifts together; drag the block body to place this pose on the music." : "Type a duration or drag the right edge. Later pose times stay fixed; drag the block body to place this pose on the music." : "Type a hold duration or drag the block right edge.");
     blockNameInputEl.value = block.name;
-    const waitDurationEditor = document.getElementById("wait-duration-editor");
-    if (waitDurationEditor) waitDurationEditor.hidden = block.type !== "wait";
-    const moveDurationFact = document.getElementById("move-duration-fact");
-    const moveStepsFact = document.getElementById("move-steps-fact");
-    if (moveDurationFact) moveDurationFact.hidden = block.type !== "moveJ";
-    if (moveStepsFact) moveStepsFact.hidden = block.type !== "moveJ";
+    blockDurationInputEl.value = Number(block.duration).toFixed(3);
+    blockStepsInputEl.value = String(block.durationSteps);
     const minimumSteps = sampledAnalysis?.minimumSteps || estimate?.minimumSteps || Sequence.WAIT_MIN_STEPS;
-    if (block.type === "wait") {
-      blockDurationInputEl.value = Number(block.duration).toFixed(3);
-      blockStepsInputEl.value = String(block.durationSteps);
-      blockDurationInputEl.min = String(minimumSteps * PROFILE.controllerPeriod);
-      blockStepsInputEl.min = String(minimumSteps);
-      blockDurationInputEl.disabled = editorLocked || isAutoGap;
-      blockStepsInputEl.disabled = editorLocked || isAutoGap;
-      blockDurationInputEl.title = isAutoGap ? "This wait preserves the next block timestamp" : "";
-      blockStepsInputEl.title = blockDurationInputEl.title;
-    } else {
-      setText("block-duration-value", `${Number(block.duration).toFixed(3)} s`);
-      setText("block-steps-value", `${block.durationSteps} \xd7 ${(PROFILE.controllerPeriod * 1e3).toFixed(0)} ms`);
-    }
+    blockDurationInputEl.min = String(minimumSteps * PROFILE.controllerPeriod);
+    blockStepsInputEl.min = String(minimumSteps);
+    blockDurationInputEl.disabled = editorLocked || isAutoGap;
+    blockStepsInputEl.disabled = editorLocked || isAutoGap;
+    blockDurationInputEl.title = isAutoGap ? "This wait preserves the next block timestamp" : "";
+    blockStepsInputEl.title = blockDurationInputEl.title;
     const poseTimeEditor = document.getElementById("pose-time-editor");
     if (poseTimeEditor) poseTimeEditor.hidden = block.type !== "moveJ";
     if (poseArrivalInputEl) {
@@ -34167,6 +34155,7 @@ move_frame("base", basePose, existingBaseParent)`;
     if (moveBlockEarlierButtonEl) moveBlockEarlierButtonEl.disabled = editorLocked || index === 0;
     if (moveBlockLaterButtonEl) moveBlockLaterButtonEl.disabled = editorLocked || index === state.waypoints.length - 1;
     document.getElementById("block-joint-section").hidden = block.type !== "moveJ";
+    document.getElementById("block-minimum-btn").hidden = block.type !== "moveJ";
     if (block.type === "moveJ" && sampledAnalysis) {
       const withinFloor = durationStepsOf(block) >= sampledAnalysis.minimumSteps;
       const limiter = sampledAnalysis.limitingJoint == null ? sampledAnalysis.limitingKind : `J${sampledAnalysis.limitingJoint + 1} ${sampledAnalysis.limitingKind}`;
@@ -34176,8 +34165,8 @@ move_frame("base", basePose, existingBaseParent)`;
       setText("block-regime-value", `Full path · ${limiter}`);
       setText("block-min-value", `${sampledAnalysis.minimumDuration.toFixed(3)} s · ${sampledAnalysis.minimumSteps} ticks`);
       const help = sampledAnalysis.floorVerified ? `Full ${sampledAnalysis.sourceFrameCount}-frame path minimum, limited by ${limiter}.` : "The imported stream itself is outside the configured derivative envelope, so shortening is disabled.";
-      document.getElementById("block-duration-value").title = help;
-      document.getElementById("block-steps-value").title = help;
+      blockDurationInputEl.title = help;
+      blockStepsInputEl.title = help;
     } else if (block.type === "moveJ" && estimate) {
       setText("block-timing-status", estimate.feasible ? "Solved" : "Outside profile");
       setText("block-a-value", Number(estimate.a).toFixed(3) + " rad/s²");
@@ -34254,6 +34243,10 @@ move_frame("base", basePose, existingBaseParent)`;
   document.getElementById("move-pose-to-playhead-btn")?.addEventListener("click", () => {
     placeSelectedPoseAt(audio.getCurrentTime());
   });
+  document.getElementById("block-minimum-btn")?.addEventListener("click", () => {
+    const context = selectedBlockContext();
+    if (context && !editorLocked && settlePoseDraftForMutation()) setBlockToMinimum(context.block.id);
+  });
   document.getElementById("preview-block-btn")?.addEventListener("click", () => {
     const context = selectedBlockContext();
     if (context?.block.q) beginPoseEdit(context.block.id);
@@ -34278,7 +34271,6 @@ move_frame("base", basePose, existingBaseParent)`;
   document.getElementById("finish-pose-edit-btn")?.addEventListener("click", () => {
     const outcome = commitPoseDraft({ finish: true });
     if (outcome.accepted && outcome.result) showToast(describePoseRetime(outcome.result), "success", 5e3);
-    if (outcome.accepted) activateInspectorTab("block");
   });
   document.getElementById("duplicate-block-btn")?.addEventListener("click", () => {
     const context = selectedBlockContext();
@@ -34318,9 +34310,6 @@ move_frame("base", basePose, existingBaseParent)`;
   function updateWPListSelection(selectedId) {
     wpLiMap.forEach((li, id) => li.classList.toggle("sel", id === selectedId));
   }
-  function updateWPListEditing() {
-    wpLiMap.forEach((li, id) => li.classList.toggle("editing", id === editingWaypointId));
-  }
   function validationBadgeFor(wp, estimate, sampledAnalysis = null) {
     if (wp?.timingMode === "sampled" && sampledAnalysis) {
       const frames = wp.source?.trace?.frameDurationsS?.length || 0;
@@ -34354,7 +34343,7 @@ move_frame("base", basePose, existingBaseParent)`;
     const estimates = waypoints.map((wp, index) => wp.timingMode === "sampled" ? null : UrpxExport.estimateSegment(waypoints, index, initialPose));
     withTimestamps(waypoints).forEach((wp, i2) => {
       const li = document.createElement("li");
-      li.className = "wp-li" + (wp.id === selectedId ? " sel" : "") + (wp.id === editingWaypointId ? " editing" : "");
+      li.className = "wp-li" + (wp.id === selectedId ? " sel" : "");
       wpLiMap.set(wp.id, li);
       const main = document.createElement("div");
       main.className = "wp-main";
