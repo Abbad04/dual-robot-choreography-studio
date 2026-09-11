@@ -553,11 +553,12 @@ body.has-live-strip #live-run-strip{display:grid}
 .tl-blk-meta{display:flex;align-items:center;gap:7px;min-width:0;margin-top:5px}
 .tl-blk-time{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;opacity:.74;font:9px ui-monospace,SFMono-Regular,Consolas,monospace}
 .tl-blk-cue{flex:0 0 auto;color:currentColor;opacity:.78;font:750 8px ui-sans-serif,system-ui,sans-serif;text-transform:uppercase;letter-spacing:.04em}
-.tl-rz-l{width:6px;flex:0 0 6px;opacity:0;pointer-events:none}
-.tl-rz-r{width:20px;flex:0 0 20px;display:grid;place-items:center;cursor:ew-resize;background:rgba(255,255,255,.08);opacity:.82;border-left:1px solid rgba(255,255,255,.12)}
-.tl-rz-r:hover{opacity:1;background:rgba(255,255,255,.16)}
-.tl-rz-r::after{content:"";width:3px;height:28px;border-left:1px solid currentColor;border-right:1px solid currentColor;border-radius:1px}
-.tl-blk.sel .tl-rz-r{opacity:1;background:rgba(255,255,255,.14)}
+.tl-rz-l,.tl-rz-r{position:absolute;top:0;bottom:0;width:16px;display:grid;place-items:center;cursor:ew-resize;background:rgba(255,255,255,.08);opacity:.72;z-index:3}
+.tl-rz-l{left:-8px;border-right:1px solid rgba(255,255,255,.12);border-radius:5px 0 0 5px}
+.tl-rz-r{right:-8px;border-left:1px solid rgba(255,255,255,.12);border-radius:0 5px 5px 0}
+.tl-rz-l:hover,.tl-rz-r:hover{opacity:1;background:rgba(255,255,255,.18)}
+.tl-rz-l::after,.tl-rz-r::after{content:"";width:3px;height:28px;border-left:1px solid currentColor;border-right:1px solid currentColor;border-radius:1px}
+.tl-blk.sel .tl-rz-l,.tl-blk.sel .tl-rz-r{opacity:1;background:rgba(255,255,255,.14)}
 .tl-rz-l.disabled,.tl-rz-r.disabled{opacity:.12;pointer-events:none}
 #tl-scrollbar{height:12px;margin-left:86px;background:#070a0e;border-top:1px solid var(--border);position:relative;cursor:pointer}
 #tl-scrollbar-thumb{position:absolute;top:2px;height:8px;min-width:32px;background:var(--surface-4);border-radius:4px;cursor:grab}
@@ -897,7 +898,7 @@ body.editor-locked #tl-open-btn{opacity:.48}
             <span></span>
             <button class="btn btn-outline" id="move-pose-to-playhead-btn" type="button" data-editor-mutation>Use playhead time</button>
           </div>
-          <p class="timing-help" id="block-timing-help">Type a duration or drag the block's right edge. Expansion shortens the next motion by the same time; drag the block body to place its pose on the music.</p>
+          <p class="timing-help" id="block-timing-help">Drag either shared edge to pass time between neighboring blocks. Motions stop at their shortest safe duration; waits disappear at zero.</p>
         </section>
 
         <section class="inspector-section">
@@ -29546,6 +29547,50 @@ globalThis.__FR5_BUILD_METADATA__=Object.freeze({"schemaVersion":1,"robotModel":
         retimeSampled
       );
     }
+    function resizeSharedBoundary(waypoints, index, side, requestedSteps, fallbackQ = POSE_HOME2, retimeSampled = true) {
+      if (!Array.isArray(waypoints) || !["left", "right"].includes(side)) return waypoints;
+      const pairLeftIndex = side === "left" ? index - 1 : index;
+      const pairRightIndex = pairLeftIndex + 1;
+      if (pairLeftIndex < 0 || pairRightIndex >= waypoints.length) return waypoints;
+      const wps = waypoints.map((block) => ({ ...block, source: block.source ? { ...block.source } : block.source }));
+      const left = wps[pairLeftIndex];
+      const right = wps[pairRightIndex];
+      const leftOld = Math.round(durationStepsOf2(left));
+      const rightOld = Math.round(durationStepsOf2(right));
+      const pairTotal = leftOld + rightOld;
+      const leftMinimum = left.type === "wait" ? 0 : secondsToSteps(minDurationFor2(wps, pairLeftIndex, fallbackQ));
+      const rightMinimum = right.type === "wait" ? 0 : secondsToSteps(minDurationFor2(wps, pairRightIndex, fallbackQ));
+      if (pairTotal < leftMinimum + rightMinimum) return waypoints;
+      const ownRequested = Math.max(0, Math.round(Number(requestedSteps) || 0));
+      const requestedLeft = side === "right" ? ownRequested : pairTotal - ownRequested;
+      const leftSteps = Math.max(leftMinimum, Math.min(pairTotal - rightMinimum, requestedLeft));
+      const rightSteps = pairTotal - leftSteps;
+      if (leftSteps === leftOld && rightSteps === rightOld) return waypoints;
+      const setSteps = (block, steps) => {
+        if (block.timingMode === "sampled") {
+          Object.assign(block, retimeSampled ? retimeSampledBlock(block, steps) : { ...block, durationSteps: steps, duration: stepsToSeconds(steps) });
+          return;
+        }
+        block.durationSteps = steps;
+        block.duration = stepsToSeconds(steps);
+        if (block.type === "moveJ") block.timingMode = "authored";
+      };
+      setSteps(left, leftSteps);
+      setSteps(right, rightSteps);
+      return retimeSampled ? resolveSequence(wps, fallbackQ) : wps;
+    }
+    function resizeSharedBoundarySeconds(waypoints, index, side, newOwnDuration, fallbackQ = POSE_HOME2, retimeSampled = true) {
+      const seconds = Math.max(0, Number(newOwnDuration) || 0);
+      const requestedSteps = waypoints[index]?.type === "wait" && seconds === 0 ? 0 : secondsToSteps(seconds);
+      return resizeSharedBoundary(
+        waypoints,
+        index,
+        side,
+        requestedSteps,
+        fallbackQ,
+        retimeSampled
+      );
+    }
     function placeBlockAtEndSteps(waypoints, index, requestedEndSteps, gapIdFactory = null) {
       const timed = withTimestamps2(waypoints);
       const timedBlock = timed[index];
@@ -29847,6 +29892,8 @@ globalThis.__FR5_BUILD_METADATA__=Object.freeze({"schemaVersion":1,"robotModel":
       resizePreservingDownstreamSeconds,
       resizeRipple,
       resizeRippleSeconds,
+      resizeSharedBoundary,
+      resizeSharedBoundarySeconds,
       reorder,
       poseAtTime: poseAtTime2,
       findReorderTarget,
@@ -29863,7 +29910,7 @@ globalThis.__FR5_BUILD_METADATA__=Object.freeze({"schemaVersion":1,"robotModel":
       findInsertionContext,
       resizePreservingDownstream,
       resizeRipple,
-      resizePreservingDownstreamSeconds,
+      resizeSharedBoundarySeconds,
       reorder,
       fixMinimumDurations,
       findNearestBoundaryIndex,
@@ -30033,12 +30080,20 @@ globalThis.__FR5_BUILD_METADATA__=Object.freeze({"schemaVersion":1,"robotModel":
     }
     function resizeBlockEdge2(id, side, newOwnDuration) {
       const index = state.waypoints.findIndex((w2) => w2.id === id);
-      if (index < 0 || side !== "right") return false;
+      if (index < 0 || !["left", "right"].includes(side)) return false;
+      if (side === "left" && index === 0) return false;
       if (Math.abs(state.waypoints[index].duration - newOwnDuration) < 1e-6) return false;
       const original = state.waypoints[index];
       const requestedSeconds = Math.max(0, Number(newOwnDuration) || 0);
       const requestedSteps = original.type === "wait" && requestedSeconds === 0 ? 0 : secondsToSteps(requestedSeconds);
-      const wps = (original.type === "wait" ? resizeRipple(state.waypoints, index, requestedSteps, state.initialPose) : durationEditMode === "ripple" ? resizeRipple(state.waypoints, index, requestedSteps, state.initialPose) : resizePreservingDownstreamSeconds(state.waypoints, index, requestedSeconds, state.initialPose, makeId)).map(withCachedPos);
+      const hasSharedNeighbor = side === "left" || index < state.waypoints.length - 1;
+      const wps = (hasSharedNeighbor ? resizeSharedBoundarySeconds(
+        state.waypoints,
+        index,
+        side,
+        requestedSeconds,
+        state.initialPose
+      ) : resizeRipple(state.waypoints, index, requestedSteps, state.initialPose)).map(withCachedPos);
       if (!durationEditChanged(state.waypoints, wps)) return false;
       pushHistory();
       const selectedId = wps.some((block) => block.id === state.selectedId) ? state.selectedId : null;
@@ -33049,12 +33104,10 @@ move_frame("base", basePose, existingBaseParent)`;
       withTimestamps: withTimestamps2,
       getTotalDuration: getTotalDuration2,
       minDurationFor: minDurationFor2,
-      resizePreservingDownstreamSeconds,
+      resizeSharedBoundarySeconds,
       resizeRippleSeconds,
       findReorderTarget,
-      placeBlockAtEndSeconds,
-      isAutomaticGap: isAutomaticGap2,
-      isOwnedTimingGap
+      placeBlockAtEndSeconds
     } = Sequence;
     let pxPerSec = 100;
     let scrollPx = 0;
@@ -33240,8 +33293,8 @@ move_frame("base", basePose, existingBaseParent)`;
         if (mode === "reorder" && cb.onReorder && lastTargetIndex != null) {
           cb.onReorder(id, lastTargetIndex);
         }
-        if (mode === "resize-r" && cb.onResize && pendDuration != null) {
-          cb.onResize(id, "right", pendDuration, requestedDuration);
+        if ((mode === "resize-l" || mode === "resize-r") && cb.onResize && pendDuration != null) {
+          cb.onResize(id, mode === "resize-l" ? "left" : "right", pendDuration, requestedDuration);
         }
         if (mode === "move-time" && cb.onMoveTime && pendingEndTime != null) {
           cb.onMoveTime(id, pendingEndTime);
@@ -33309,35 +33362,44 @@ move_frame("base", basePose, existingBaseParent)`;
         }
         showTip(cx, cy, `→ position ${target + 1}`);
       }
-      if (dragState.mode === "resize-r") {
+      if (dragState.mode === "resize-l" || dragState.mode === "resize-r") {
+        const side = dragState.mode === "resize-l" ? "left" : "right";
         const dxSec = toSec(mouseContentPx - dragState.startMouseContentPx);
-        const rawDur = dragState.startOwnDuration + dxSec;
-        const wpStart = withTimestamps2(lastWaypoints)[dragState.index].start;
-        const rawEdge = wpStart + rawDur;
-        const snappedDur = snapTime(rawEdge) - wpStart;
-        const preview = cb.getDurationEditMode?.() === "ripple" ? resizeRippleSeconds(lastWaypoints, dragState.index, snappedDur, lastInitialPose || void 0, false) : resizePreservingDownstreamSeconds(
+        const rawDur = Math.max(0, dragState.startOwnDuration + (side === "right" ? dxSec : -dxSec));
+        const originalTimed = withTimestamps2(lastWaypoints)[dragState.index];
+        const rawEdge = side === "right" ? originalTimed.start + rawDur : originalTimed.end - rawDur;
+        const snappedEdge = snapTime(rawEdge);
+        const snappedDur = Math.max(0, side === "right" ? snappedEdge - originalTimed.start : originalTimed.end - snappedEdge);
+        const hasSharedNeighbor = side === "left" || dragState.index < lastWaypoints.length - 1;
+        const preview = hasSharedNeighbor ? resizeSharedBoundarySeconds(
+          lastWaypoints,
+          dragState.index,
+          side,
+          snappedDur,
+          lastInitialPose || void 0,
+          false
+        ) : resizeRippleSeconds(
           lastWaypoints,
           dragState.index,
           snappedDur,
           lastInitialPose || void 0,
-          null,
           false
         );
         repositionAll(preview);
-        const wp = preview[dragState.index];
-        const t2 = withTimestamps2(preview)[dragState.index];
-        const limited = wp.duration + PROFILE.controllerPeriod / 2 < Math.max(0, snappedDur);
-        const original = lastWaypoints[dragState.index];
-        const ownedGap = isOwnedTimingGap(lastWaypoints[dragState.index + 1], original?.id);
-        const blocker = lastWaypoints[dragState.index + 1 + (ownedGap ? 1 : 0)];
-        const limitLabel = blocker?.type === "wait" ? "next wait boundary" : "next motion at minimum";
+        const wp = preview.find((block) => block.id === dragState.id);
+        const t2 = withTimestamps2(preview).find((block) => block.id === dragState.id);
+        const actualDuration = wp?.duration ?? 0;
+        const collapsedAt = side === "left" ? originalTimed.end : originalTimed.start;
+        const start = t2?.start ?? collapsedAt;
+        const end = t2?.end ?? collapsedAt;
+        const limited = Math.abs(actualDuration - snappedDur) > PROFILE.controllerPeriod / 2;
         showTip(
           cx,
           cy,
-          `${fmtTime(t2.start)} → ${fmtTime(t2.end)}  (${wp.duration.toFixed(2)}s)${limited ? ` · ${limitLabel}` : ""}`,
+          `${fmtTime(start)} → ${fmtTime(end)}  (${actualDuration.toFixed(2)}s)${limited ? " · motion minimum reached" : ""}`,
           limited ? "warn" : "info"
         );
-        dragState.pendDuration = wp.duration;
+        dragState.pendDuration = actualDuration;
         dragState.requestedDuration = Math.max(0, snappedDur);
       }
     }
@@ -33444,11 +33506,14 @@ move_frame("base", basePose, existingBaseParent)`;
         blk.tabIndex = 0;
         blk.setAttribute("role", "button");
         blk.setAttribute("aria-pressed", String(isSel));
-        blk.setAttribute("aria-label", `${wp.type === "wait" ? "Wait" : "MoveJ"} ${wp.name}, ${wp.duration.toFixed(3)} seconds. ${wp.type === "moveJ" ? "Drag the block body to set pose arrival. Alt plus Left or Right Arrow makes a fine adjustment. Dragging its right edge longer shortens the next motion by the same time. " : "Drag the block body to reorder this wait. "}Drag the right edge to change duration. Control plus Left or Right Arrow reorders this block.`);
+        const leftEdgeHelp = i2 > 0 ? "Drag the left edge to share time with the previous block. " : "";
+        const rightEdgeHelp = i2 < withT.length - 1 ? "Drag the right edge to share time with the next block. " : "Drag the right edge to change the ending duration. ";
+        const collapseHelp = wp.type === "wait" ? "A wait disappears when fully collapsed. " : "";
+        blk.setAttribute("aria-label", `${wp.type === "wait" ? "Wait" : "MoveJ"} ${wp.name}, ${wp.duration.toFixed(3)} seconds. ${wp.type === "moveJ" ? "Drag the block body to set pose arrival. Alt plus Left or Right Arrow makes a fine adjustment. " : "Drag the block body to reorder this wait. "}${leftEdgeHelp}${rightEdgeHelp}${collapseHelp}Control plus Left or Right Arrow reorders this block.`);
         blockEls.set(wp.id, blk);
         const lh = document.createElement("div");
-        lh.className = "tl-rz-l disabled";
-        lh.title = "Block start times are fixed";
+        lh.className = "tl-rz-l";
+        lh.title = wp.type === "wait" ? "Drag to share time with the previous block; collapse fully to remove" : "Drag to share time with the previous block";
         const body = document.createElement("div");
         body.className = "tl-blk-body";
         body.title = wp.type === "moveJ" ? "Drag to set pose arrival · Alt+Left/Right makes a fine adjustment" : "Drag to reorder this wait";
@@ -33472,9 +33537,9 @@ move_frame("base", basePose, existingBaseParent)`;
         body.append(nm, meta);
         const rh = document.createElement("div");
         rh.className = "tl-rz-r";
-        rh.title = wp.type === "moveJ" ? "Drag to change duration; expansion shortens the next motion" : "Drag to change hold duration; shrink fully to remove";
-        if (wp.type === "moveJ") blk.append(lh, body, rh);
-        else blk.append(body, rh);
+        rh.title = i2 < withT.length - 1 ? `Drag to share time with the next block${wp.type === "wait" ? "; collapse fully to remove" : ""}` : `Drag to change ${wp.type === "wait" ? "hold " : ""}duration${wp.type === "wait" ? "; collapse fully to remove" : ""}`;
+        if (i2 > 0) blk.append(lh);
+        blk.append(body, rh);
         body.addEventListener("dblclick", (e2) => {
           e2.stopPropagation();
           if (cb.onBlockDblClick) cb.onBlockDblClick(wp.id, nm, wp.name);
@@ -33502,14 +33567,25 @@ move_frame("base", basePose, existingBaseParent)`;
             lastClientY: e2.clientY
           };
         });
-        rh.addEventListener("mousedown", (e2) => {
+        const beginResize = (side, e2) => {
           e2.stopPropagation();
           e2.preventDefault();
           if (cb.onBlockClick) cb.onBlockClick(wp.id);
           document.body.style.cursor = "ew-resize";
           contentRect = els.content.getBoundingClientRect();
-          dragState = { mode: "resize-r", id: wp.id, index: i2, startX: e2.clientX, startOwnDuration: wp.duration, startMouseContentPx: e2.clientX - contentRect.left + scrollPx, lastClientX: e2.clientX, lastClientY: e2.clientY };
-        });
+          dragState = {
+            mode: side === "left" ? "resize-l" : "resize-r",
+            id: wp.id,
+            index: i2,
+            startX: e2.clientX,
+            startOwnDuration: wp.duration,
+            startMouseContentPx: e2.clientX - contentRect.left + scrollPx,
+            lastClientX: e2.clientX,
+            lastClientY: e2.clientY
+          };
+        };
+        if (i2 > 0) lh.addEventListener("mousedown", (e2) => beginResize("left", e2));
+        rh.addEventListener("mousedown", (e2) => beginResize("right", e2));
         blk.addEventListener("click", (e2) => {
           e2.stopPropagation();
           if (cb.onBlockClick) cb.onBlockClick(wp.id);
@@ -34141,7 +34217,7 @@ move_frame("base", basePose, existingBaseParent)`;
     setText("block-start-value", timeline.fmtTime(block.start));
     setText("block-end-value", timeline.fmtTime(block.end));
     setText("inspector-duration-label", block.type === "wait" ? "Hold duration" : "Move duration");
-    setText("block-timing-help", block.type === "moveJ" ? getDurationEditMode() === "ripple" ? "Type a duration or drag the right edge. Every later pose shifts together; drag the block body to place this pose on the music." : "Type a duration or drag the right edge. Later pose times stay fixed; drag the block body to place this pose on the music." : "Type a hold duration or drag the block right edge.");
+    setText("block-timing-help", block.type === "moveJ" ? "Drag either shared edge to pass time between neighboring blocks. The motion stops at its shortest safe duration; drag the block body to place its pose on the music." : "Drag either shared edge to pass time to a neighboring block. Collapse the wait fully to remove it.");
     blockNameInputEl.value = block.name;
     blockDurationInputEl.value = Number(block.duration).toFixed(3);
     const minimumSteps = block.type === "wait" ? 0 : sampledAnalysis?.minimumSteps || estimate?.minimumSteps || 1;
