@@ -29058,8 +29058,8 @@ globalThis.__FR5_BUILD_METADATA__=Object.freeze({"schemaVersion":1,"robotModel":
         if (endTimes != null && (!Array.isArray(endTimes) || endTimes.length !== durations.length)) {
           throw new Error(`${wp.name || "ServoJ trajectory"} has invalid sampled timestamps`);
         }
-        if (trace.startQ && (!isJointVector2(trace.startQ) || trace.startQ.some((value, index) => Math.abs(value - qStart[index]) > 1e-7))) {
-          throw new Error(`${wp.name || "ServoJ trajectory"} starts from a different robot configuration`);
+        if (trace.startQ && !isJointVector2(trace.startQ)) {
+          throw new Error(`${wp.name || "ServoJ trajectory"} has an invalid recorded start pose`);
         }
         let elapsed = 0;
         for (let frame = 0; frame < durations.length; frame++) {
