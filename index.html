@@ -29980,6 +29980,7 @@ globalThis.__FR5_BUILD_METADATA__=Object.freeze({"schemaVersion":1,"robotModel":
       withTimestamps: withTimestamps2,
       minDurationFor: minDurationFor2,
       durationStepsOf: durationStepsOf2,
+      previousMotionQ: previousMotionQ2,
       placeBlockAtEndSteps,
       isAutomaticGap: isAutomaticGap2,
       recalculatePoseEdit
@@ -30118,13 +30119,54 @@ globalThis.__FR5_BUILD_METADATA__=Object.freeze({"schemaVersion":1,"robotModel":
       notify({ type: "waypoints", reason: "insert", id: wp.id });
       return wp.id;
     }
+    function reconnectSampledSuccessorAfterRemoval(waypoints, removedIndex, removedBlock) {
+      if (removedBlock?.type !== "moveJ") return { waypoints, reconnectedId: null };
+      const nextMoveIndex = waypoints.findIndex(
+        (block, index) => index >= removedIndex && block.type === "moveJ"
+      );
+      if (nextMoveIndex < 0) return { waypoints, reconnectedId: null };
+      const successor = waypoints[nextMoveIndex];
+      if (successor.timingMode !== "sampled") {
+        return { waypoints, reconnectedId: successor.id };
+      }
+      const trace = successor.source?.trace;
+      const { trace: _discardedTrace, ...retainedSource } = successor.source || {};
+      const newStart = previousMotionQ2(waypoints, nextMoveIndex, state.initialPose);
+      const rebuilt = {
+        ...successor,
+        timingMode: "authored",
+        command: null,
+        timing: void 0,
+        _calibratedAV: void 0,
+        validation: void 0,
+        source: {
+          ...retainedSource,
+          format: "editor",
+          kind: "reconnected-after-delete",
+          derivedFrom: retainedSource.derivedFrom || retainedSource.format || "sampled",
+          replacedSampledTrajectory: true,
+          reconnectedAfterDelete: removedBlock.id,
+          previousRecordedStartQ: isJointVector2(trace?.startQ) ? [...trace.startQ] : null,
+          newStartQ: [...newStart]
+        }
+      };
+      const result = [...waypoints];
+      result[nextMoveIndex] = rebuilt;
+      return { waypoints: result, reconnectedId: successor.id };
+    }
     function removeWaypoint2(id) {
-      pushHistory();
-      let wps = state.waypoints.filter((w2) => w2.id !== id);
+      const removedIndex = state.waypoints.findIndex((block) => block.id === id);
+      if (removedIndex < 0) return false;
+      const removedBlock = state.waypoints[removedIndex];
+      let wps = state.waypoints.filter((block) => block.id !== id);
+      const reconnection = reconnectSampledSuccessorAfterRemoval(wps, removedIndex, removedBlock);
+      wps = reconnection.waypoints;
       wps = fixMinimumDurations(wps, state.initialPose);
+      pushHistory();
       const selectedId = state.selectedId === id ? null : state.selectedId;
       state = { ...state, waypoints: wps, selectedId };
-      notify({ type: "waypoints", reason: "remove", id });
+      notify({ type: "waypoints", reason: "remove", id, reconnectedId: reconnection.reconnectedId });
+      return { removedId: id, reconnectedId: reconnection.reconnectedId };
     }
     function durationEditChanged(before, after) {
       return before.length !== after.length || after.some((block, index) => {
@@ -34250,8 +34292,16 @@ move_frame("base", basePose, existingBaseParent)`;
   function removeWaypointSafely(id) {
     if (editingWaypointId === id) discardPoseDraft();
     else if (editingWaypointId && !commitPoseDraft({ finish: true }).accepted) return false;
-    removeWaypoint(id);
-    return true;
+    try {
+      const result = removeWaypoint(id);
+      if (result?.reconnectedId) {
+        showToast("Deleted · the following motion was reconnected and retimed", "success", 4500);
+      }
+      return Boolean(result);
+    } catch (error) {
+      showToast(`Delete could not keep the following motion feasible: ${error.message}`, "error", 6500);
+      return false;
+    }
   }
   function settlePoseDraftForMutation() {
     return !editingWaypointId || commitPoseDraft({ finish: true }).accepted;
