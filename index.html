@@ -333,6 +333,36 @@ button:disabled,input:disabled{opacity:.42;cursor:not-allowed}
 .section-heading{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:8px}
 .section-heading h2{font-size:11px;font-weight:750;letter-spacing:.03em}
 .section-heading>span{color:var(--text-muted);font-size:10px}
+.fr5-live-card{padding:12px;background:linear-gradient(145deg,rgba(56,210,231,.09),rgba(16,22,30,.96));border:1px solid rgba(56,210,231,.28);border-radius:var(--radius)}
+.fr5-live-heading-row{display:flex;align-items:flex-start;justify-content:space-between;gap:10px;margin-bottom:10px}
+.fr5-live-heading-row h2{margin-top:2px;font-size:14px}
+.fr5-connection-badge{padding:3px 7px;color:var(--text-muted);background:var(--surface-1);border:1px solid var(--border);border-radius:999px;font-size:9px;font-weight:750;white-space:nowrap}
+.fr5-connection-badge[data-state="connected"],.fr5-connection-badge[data-state="servo"]{color:var(--green);background:var(--green-soft);border-color:rgba(86,214,155,.34)}
+.fr5-connection-badge[data-state="connecting"]{color:var(--cyan);border-color:rgba(56,210,231,.34)}
+.fr5-connection-badge[data-state="error"]{color:var(--red);background:var(--red-soft);border-color:rgba(255,107,112,.34)}
+.fr5-address-row{display:grid;grid-template-columns:auto minmax(0,1fr) auto auto;align-items:center;gap:7px;padding:8px;background:rgba(8,11,15,.52);border:1px solid var(--border);border-radius:6px}
+.fr5-address-row>span{color:var(--text-muted);font-size:9px;text-transform:uppercase}
+.fr5-address-row output{overflow:hidden;color:var(--text-soft);font:10px ui-monospace,SFMono-Regular,Consolas,monospace;text-overflow:ellipsis;white-space:nowrap}
+.fr5-address-row .btn{min-height:28px;padding:4px 8px}
+.fr5-pairing-row{display:grid;grid-template-columns:auto minmax(0,1fr);align-items:center;gap:8px;margin-top:7px;padding:8px;background:rgba(8,11,15,.52);border:1px solid var(--border);border-radius:6px}
+.fr5-pairing-row>span{color:var(--text-muted);font-size:9px;text-transform:uppercase}
+.fr5-pairing-row input{width:100%;min-width:0;height:28px;padding:4px 8px;color:var(--text);background:var(--surface-1);border:1px solid var(--border);border-radius:5px;font:10px ui-monospace,SFMono-Regular,Consolas,monospace}
+.fr5-pairing-row input:focus{outline:1px solid var(--cyan);border-color:var(--cyan)}
+.fr5-live-copy{margin:8px 1px;color:var(--text-muted);font-size:10px;line-height:1.45}
+.fr5-live-actions{display:flex;gap:7px;align-items:stretch}
+.fr5-live-switch,.fr5-operator-check{display:flex;align-items:flex-start;justify-content:space-between;gap:10px;padding:9px;background:var(--surface-1);border:1px solid var(--border);border-radius:6px;cursor:pointer}
+.fr5-live-switch span,.fr5-operator-check span{min-width:0}
+.fr5-live-switch strong,.fr5-live-switch small,.fr5-operator-check strong,.fr5-operator-check small{display:block}
+.fr5-live-switch strong,.fr5-operator-check strong{font-size:10px}
+.fr5-live-switch small,.fr5-operator-check small{margin-top:2px;color:var(--text-muted);font-size:9px;line-height:1.35}
+.fr5-live-switch input,.fr5-operator-check input{margin-top:2px;flex:0 0 auto}
+.fr5-operator-check{margin-top:7px;justify-content:flex-start;background:var(--amber-soft);border-color:rgba(244,184,75,.25)}
+.fr5-live-status{min-height:16px;margin-top:8px;color:var(--text-muted);font-size:9px;line-height:1.4}
+.fr5-live-status.is-ready{color:var(--green)}
+.fr5-live-status.is-moving{color:var(--cyan)}
+.fr5-live-status.is-error{color:var(--red)}
+html[data-fr5-live-control="true"] #jsliders input[type="range"],html[data-fr5-live-control="true"] #tool-controls input[type="range"]{accent-color:var(--green)}
+html[data-fr5-live-control="true"] #jsliders input[type="range"]:active,html[data-fr5-live-control="true"] #tool-controls input[type="range"]:active{filter:drop-shadow(0 0 5px rgba(86,214,155,.72))}
 .start-pose-section .start-pose-clock{padding:2px 6px;color:var(--cyan);background:var(--cyan-soft);border:1px solid rgba(56,210,231,.28);border-radius:999px;font:700 8px ui-monospace,SFMono-Regular,Consolas,monospace;letter-spacing:.02em}
 .start-pose-card{position:relative;padding:9px 10px 10px;background:var(--surface-1);border:1px solid var(--border);border-radius:var(--radius)}
 .start-pose-card::before{content:"";position:absolute;left:-1px;top:9px;bottom:9px;width:2px;background:var(--cyan);border-radius:0 2px 2px 0}
@@ -773,6 +803,36 @@ body.editor-locked #tl-open-btn{opacity:.48}
         <button class="btn btn-cyan" id="finish-pose-edit-btn" type="button" data-editor-mutation>Done</button>
       </div>
 
+      <section class="inspector-section fr5-live-card" id="fr5-live-card" aria-labelledby="fr5-live-heading" hidden>
+        <div class="fr5-live-heading-row">
+          <div>
+            <span class="eyebrow">Physical robot</span>
+            <h2 id="fr5-live-heading">FR5 connection</h2>
+          </div>
+          <span class="fr5-connection-badge" id="fr5-connection-badge" data-state="offline">Helper offline</span>
+        </div>
+        <div class="fr5-address-row">
+          <span>Robot</span>
+          <output id="fr5-robot-address">192.168.58.2</output>
+          <button class="btn btn-cyan" id="fr5-connect-btn" type="button">Connect</button>
+          <button class="btn btn-outline" id="fr5-disconnect-btn" type="button" hidden>Disconnect</button>
+        </div>
+        <label class="fr5-pairing-row" id="fr5-pairing-row" for="fr5-bridge-code">
+          <span>Pairing code</span>
+          <input id="fr5-bridge-code" type="password" autocomplete="off" spellcheck="false" placeholder="Code from FR5 Connector">
+        </label>
+        <p class="fr5-live-copy" id="fr5-live-copy">Start FR5 Connector beside the robot, enter its pairing code, then choose Connect.</p>
+        <div class="fr5-live-actions">
+          <a class="btn btn-outline" id="fr5-connector-download" href="https://github.com/abbad04/dual-robot-choreography-studio/archive/refs/heads/main.zip" target="_blank" rel="noopener noreferrer">Download connector</a>
+          <button class="btn btn-outline" id="fr5-read-pose-btn" type="button" disabled>Use robot pose</button>
+        </div>
+        <label class="fr5-operator-check" for="fr5-operator-ready">
+          <input type="checkbox" id="fr5-operator-ready" disabled>
+          <span><strong>I am beside the robot and ready</strong><small>The workspace is clear and the physical emergency stop is reachable.</small></span>
+        </label>
+        <p class="fr5-live-status" id="fr5-live-panel-status" role="status" aria-live="polite">No physical robot connected.</p>
+      </section>
+
       <section class="inspector-section">
         <div class="section-heading">
           <h2>Quick poses</h2>
@@ -1009,19 +1069,19 @@ body.editor-locked #tl-open-btn{opacity:.48}
   </aside>
 </div>
 
-<section id="live-run-strip" aria-live="assertive" aria-label="UR20 live run" hidden>
+<section id="live-run-strip" aria-live="assertive" aria-label="Live robot run" hidden>
   <div class="live-state">
     <span class="live-dot" aria-hidden="true"></span>
-    <div><span>UR20 live</span><strong id="live-strip-phase">Ready</strong></div>
+    <div><span id="live-strip-robot-label">UR20 live</span><strong id="live-strip-phase">Ready</strong></div>
   </div>
-  <div class="live-metric"><span>Program</span><strong id="live-strip-program">Loaded in PolyScope</strong></div>
+  <div class="live-metric"><span>Program</span><strong id="live-strip-program">Ready</strong></div>
   <div class="live-metric"><span>Elapsed</span><strong id="live-strip-elapsed">0.000 s</strong></div>
   <div class="live-metric"><span>Expected</span><strong id="live-strip-expected">—</strong></div>
-  <div class="live-metric"><span>RTDE</span><strong id="live-strip-rtde">Checking</strong></div>
+  <div class="live-metric"><span id="live-strip-state-label">RTDE</span><strong id="live-strip-rtde">Checking</strong></div>
   <div class="live-metric"><span>Safety</span><strong id="live-strip-safety">—</strong></div>
   <div class="live-metric"><span>Scaling</span><strong id="live-strip-scaling">—</strong></div>
   <button class="btn btn-outline" id="ur20-live-reconnect-btn" type="button">Reconnect</button>
-  <button class="btn btn-stop" id="live-stop-btn" type="button">Stop UR20</button>
+  <button class="btn btn-stop" id="live-stop-btn" type="button">Stop robot</button>
 </section>
 
 <section id="tl-panel" class="open" role="region" aria-label="Choreography timeline" data-persistent="true">
@@ -1037,7 +1097,7 @@ body.editor-locked #tl-open-btn{opacity:.48}
       <span>Playback</span>
       <label class="mode-option">
         <input type="checkbox" id="ur20-live-enabled">
-        <span>UR20 Live</span>
+        <span id="live-destination-label">UR20 Live</span>
       </label>
     </div>
     <span id="ur20-live-status" role="status" aria-live="polite">Bridge: checking…</span>
@@ -31180,12 +31240,37 @@ globalThis.__FR5_BUILD_METADATA__=Object.freeze({"schemaVersion":1,"robotModel":
     const { PROFILE: PROFILE2, isJointVector: isJointVector2, pathIsLegal: pathIsLegal2 } = MoveJEngine;
     const JNAMES = ["Base", "Shoulder", "Elbow", "Wrist 1", "Wrist 2", "Wrist 3"];
     let onPoseChange = null;
+    let onInteractionStart = null;
+    let onInteractionEnd = null;
     let currentQ = [0, 0, 0, 0, 0, 0];
     let pendingEETarget = null;
     let _lock = false;
+    let _interacting = false;
     let el = {};
-    function initJog2({ container, onPoseChange: cbPose }) {
+    function initJog2({ container, onPoseChange: cbPose, onInteractionStart: cbStart, onInteractionEnd: cbEnd }) {
       onPoseChange = cbPose;
+      onInteractionStart = cbStart || null;
+      onInteractionEnd = cbEnd || null;
+      const bindPointerGesture = (control, kind) => {
+        control.addEventListener("pointerdown", (event) => {
+          if (_lock || control.disabled) return;
+          _interacting = true;
+          try {
+            control.setPointerCapture?.(event.pointerId);
+          } catch (error) {
+          }
+          if (onInteractionStart) onInteractionStart({ kind, control, q: [...currentQ] });
+        });
+        const finish = () => {
+          if (!_interacting) return;
+          _interacting = false;
+          if (onInteractionEnd) onInteractionEnd({ kind, control, q: [...currentQ] });
+        };
+        control.addEventListener("pointerup", finish);
+        control.addEventListener("pointercancel", finish);
+        control.addEventListener("lostpointercapture", finish);
+        control.addEventListener("blur", finish);
+      };
       container.innerHTML = "";
       JNAMES.forEach((name, i2) => {
         const minDeg = PROFILE2.jointDomain[i2][0] * 180 / PI;
@@ -31240,6 +31325,7 @@ globalThis.__FR5_BUILD_METADATA__=Object.freeze({"schemaVersion":1,"robotModel":
         };
         sl.addEventListener("input", () => applyJointInput(sl));
         num.addEventListener("change", () => applyJointInput(num));
+        bindPointerGesture(sl, "joint");
       });
       ["x", "y", "z"].forEach((ax) => {
         el[`sl${ax.toUpperCase()}`] = document.getElementById(`sl-${ax}`);
@@ -31268,6 +31354,7 @@ globalThis.__FR5_BUILD_METADATA__=Object.freeze({"schemaVersion":1,"robotModel":
         };
         sl.addEventListener("input", () => queueTarget(sl));
         num.addEventListener("change", () => queueTarget(num));
+        bindPointerGesture(sl, "tool");
       });
       el.ikStatus = document.getElementById("ik-status");
     }
@@ -31291,6 +31378,7 @@ globalThis.__FR5_BUILD_METADATA__=Object.freeze({"schemaVersion":1,"robotModel":
     }
     function syncSlidersFromQ2(q) {
       currentQ = [...q];
+      if (_interacting) return;
       _lock = true;
       for (let i2 = 0; i2 < 6; i2++) {
         const deg = (q[i2] * 180 / PI).toFixed(1);
@@ -31313,7 +31401,7 @@ globalThis.__FR5_BUILD_METADATA__=Object.freeze({"schemaVersion":1,"robotModel":
       });
       _lock = false;
     }
-    return { initJog: initJog2, step, syncSlidersFromQ: syncSlidersFromQ2 };
+    return { initJog: initJog2, step, syncSlidersFromQ: syncSlidersFromQ2, isInteracting: () => _interacting };
   })();
   var UrpxExport = (function() {
     const { fkEE, getPos, norm3, rotToRV, POSE_HOME: POSE_HOME2 } = Kinematics;
@@ -31991,22 +32079,22 @@ move_frame("base", basePose, existingBaseParent)`;
         ...plan.nodes.map((node) => `-- WB_NODE_V1 index=${node.index + 1} type=${node.type === "wait" ? "WAIT" : "MOVEJ"} name_hex=${asciiHex(node.name)} duration_us=${nodeDurationUs(node)} frame_start=${node.frameStart + 1} frame_count=${node.steps}`)
       ];
     }
-    function commonHeader(programName, robotQ) {
+    function commonHeader(programName, robotQ, physical = false) {
       const setup = degrees(robotQ);
       return [
         "-- FAIRINO FR5-WML model 803 manual choreography.",
         `-- Program: ${ascii(programName, "FR5_Choreography")}`,
         `-- Profile: ${PROFILE2.id}`,
         `-- Profile fingerprint: ${PROFILE2.fingerprint}`,
-        "-- Simulator-only output. Physical robot connectivity is disabled.",
+        physical ? "-- Physical playback requested through the loopback FR5 safety helper." : "-- Simulator-only output. Physical robot connectivity is disabled.",
         "-- PRE-ROLL: excluded from the choreography clock.",
         `wx, wy, wz, wrx, wry, wrz = GetForwardKin(${setup})`,
         `MoveJ({${setup}}, {wx, wy, wz, wrx, wry, wrz}, 0, 0, 20, 0, 20, {0, 0, 0, 0}, -1, 0, {0, 0, 0, 0, 0, 0})`,
         "-- CHOREOGRAPHY CLOCK START"
       ];
     }
-    function buildLiteralSource(plan, programName, robotQ) {
-      const lines = [...commonHeader(programName, robotQ), ...exportMetadata(plan, "literal-servoj")];
+    function buildLiteralSource(plan, programName, robotQ, physical = false) {
+      const lines = [...commonHeader(programName, robotQ, physical), ...exportMetadata(plan, "literal-servoj")];
       for (const node of plan.nodes) {
         lines.push(`-- NODE ${String(node.index + 1).padStart(3, "0")} | ${node.type === "wait" ? "WAIT" : "MOVEJ"} | ${node.name} | ${(nodeDurationUs(node) / 1e6).toFixed(3)} s`);
         if (node.type === "wait") {
@@ -32071,7 +32159,7 @@ move_frame("base", basePose, existingBaseParent)`;
       });
       return bytesToBase64(bytes);
     }
-    function buildCompactSource(plan, programName, robotQ) {
+    function buildCompactSource(plan, programName, robotQ, physical = false) {
       const records = compactFrames(plan);
       const payload = compactPayload(records);
       const chunks = [];
@@ -32081,7 +32169,7 @@ move_frame("base", basePose, existingBaseParent)`;
       const duration = records.reduce((sum, frame) => sum + frame.duration, 0);
       const nodeComments = plan.nodes.map((node) => `-- NODE ${String(node.index + 1).padStart(3, "0")} | ${node.type === "wait" ? "WAIT" : "MOVEJ"} | ${node.name} | ${(nodeDurationUs(node) / 1e6).toFixed(3)} s`);
       const lines = [
-        ...commonHeader(programName, robotQ),
+        ...commonHeader(programName, robotQ, physical),
         ...exportMetadata(plan, "delta-base64-v1"),
         "-- Compact representation: signed microdegree deltas and microsecond command durations.",
         `-- Frames: ${records.length}; duration: ${duration.toFixed(6)} s.`,
@@ -32134,20 +32222,58 @@ move_frame("base", basePose, existingBaseParent)`;
       ];
       return lines.join("\n");
     }
-    function buildFairinoLua2({ waypoints, robotQ = POSE_HOME2, programName = "FR5_Choreography", profileConfirmed = true }) {
+    function physicalSlice(plan, robotQ, startTime = 0) {
+      const records = compactFrames(plan);
+      if (!records.length) throw new Error("Add at least one motion before physical playback");
+      const requested = Math.max(0, Number(startTime) || 0);
+      const startFrame = Math.min(
+        records.length - 1,
+        Math.max(0, Math.floor((requested + 1e-9) / PROFILE2.controllerPeriod))
+      );
+      const startQ = startFrame === 0 ? [...robotQ] : [...records[startFrame - 1].q];
+      const remaining = records.slice(startFrame);
+      return {
+        startQ,
+        startFrame,
+        startSeconds: startFrame * PROFILE2.controllerPeriod,
+        endSeconds: records.length * PROFILE2.controllerPeriod,
+        trajectory: {
+          schema_version: 1,
+          encoding: "fr5-delta-microdegree-u32-us-v1",
+          frame_count: remaining.length,
+          payload_base64: compactPayload(remaining)
+        }
+      };
+    }
+    function buildFairinoLua2({
+      waypoints,
+      robotQ = POSE_HOME2,
+      programName = "FR5_Choreography",
+      profileConfirmed = true,
+      physical = false,
+      startTime = 0
+    }) {
       assertReady(waypoints, robotQ, profileConfirmed);
       const plan = buildPlan(waypoints, robotQ);
       const compact = plan.literalStatements > COMPACT_STATEMENT_THRESHOLD;
-      const source = compact ? buildCompactSource(plan, programName, robotQ) : buildLiteralSource(plan, programName, robotQ);
+      const source = compact ? buildCompactSource(plan, programName, robotQ, physical) : buildLiteralSource(plan, programName, robotQ, physical);
       if ([...source].some((char) => char.charCodeAt(0) > 127)) throw new Error("Internal export error: Lua is not ASCII");
       if (new Blob([source]).size > MAX_LUA_BYTES) throw new Error("Lua exceeds the qualified 16 MiB SimMachine upload bound");
+      const physicalPlan = physical ? physicalSlice(plan, robotQ, startTime) : null;
+      const physicalTrajectory = physicalPlan?.trajectory || null;
       return {
         source,
         filename: `RAW_${programStem(programName)}.lua`,
         format: compact ? "compact-delta-base64" : "literal-servoj",
         compact,
-        frameCount: plan.frameCount,
-        statementThreshold: COMPACT_STATEMENT_THRESHOLD
+        frameCount: physicalTrajectory?.frame_count ?? plan.frameCount,
+        fullFrameCount: plan.frameCount,
+        statementThreshold: COMPACT_STATEMENT_THRESHOLD,
+        physicalTrajectory,
+        physicalStartQ: physicalPlan?.startQ || null,
+        physicalStartFrame: physicalPlan?.startFrame || 0,
+        physicalStartSeconds: physicalPlan?.startSeconds || 0,
+        physicalEndSeconds: physicalPlan?.endSeconds ?? plan.frameCount * PROFILE2.controllerPeriod
       };
     }
     return { buildFairinoLua: buildFairinoLua2, COMPACT_STATEMENT_THRESHOLD };
@@ -33213,6 +33339,402 @@ move_frame("base", basePose, existingBaseParent)`;
     }
     return { check, start, stop, poll, onChange, getState: getState2, isRunning, isActive, elapsedSeconds, latestResult };
   })();
+  var FR5Live = (function() {
+    const localBridgeOrigin = globalThis.location?.hostname === "127.0.0.1" && globalThis.location?.port === "8766";
+    const BASE = localBridgeOrigin ? "/v1" : "http://127.0.0.1:8766/v1";
+    const BRIDGE_CODE_KEY = "fr5-bridge-pairing-code";
+    const listeners = /* @__PURE__ */ new Set();
+    let state = { phase: "checking", snapshot: null, error: null, receivedAtMs: performance.now() };
+    let pollHandle = null;
+    let startPromise = null;
+    let poseSessionId = null;
+    let pendingPose = null;
+    let lastPose = null;
+    let poseSending = false;
+    let poseSequence = 0;
+    let poseHeartbeat = null;
+    let poseFlushPromise = null;
+    let poseEndPromise = null;
+    let pairingCode = "";
+    try {
+      pairingCode = localBridgeOrigin ? "" : String(sessionStorage.getItem(BRIDGE_CODE_KEY) || "").trim();
+    } catch (error) {
+    }
+    function getState2() {
+      return { ...state };
+    }
+    function notify() {
+      const copy = getState2();
+      for (const listener of listeners) {
+        try {
+          listener(copy);
+        } catch (error) {
+          console.error(error);
+        }
+      }
+    }
+    function setState(patch) {
+      state = { ...state, ...patch, receivedAtMs: performance.now() };
+      notify();
+    }
+    function onChange(listener) {
+      listeners.add(listener);
+      listener(getState2());
+      return () => listeners.delete(listener);
+    }
+    async function request(path, options = {}) {
+      const headers = { ...options.headers || {} };
+      if (options.body != null) headers["Content-Type"] = "application/json";
+      if (!localBridgeOrigin && pairingCode) headers["X-FR5-Bridge-Token"] = pairingCode;
+      const response = await fetch(BASE + path, {
+        cache: "no-store",
+        credentials: localBridgeOrigin ? "same-origin" : "omit",
+        ...options,
+        headers
+      });
+      let body = {};
+      try {
+        body = await response.json();
+      } catch (error) {
+      }
+      if (!response.ok) {
+        const failure = new Error(body.error || `FR5 helper responded ${response.status}`);
+        failure.status = response.status;
+        failure.body = body;
+        throw failure;
+      }
+      return body;
+    }
+    function phaseFor(snapshot) {
+      const status = String(snapshot?.status || "disconnected");
+      if (status === "arming") return "starting";
+      if (["positioning", "running", "paused", "completed", "aborted", "failed", "servo", "connected", "disconnected"].includes(status)) return status;
+      return snapshot?.connected ? "connected" : "disconnected";
+    }
+    function applySnapshot(snapshot, { reconnect = false } = {}) {
+      let phase = phaseFor(snapshot);
+      if (state.phase === "unknown-running" && phase === "running" && !reconnect) phase = "unknown-running";
+      if (phase !== "servo") {
+        poseSessionId = null;
+        stopPoseHeartbeat();
+      }
+      setState({ phase, snapshot, error: snapshot?.error || null });
+      if (["completed", "aborted", "failed", "disconnected"].includes(phase)) {
+        if (phase !== "connected") poseSessionId = null;
+        if (phase === "disconnected") stopPolling();
+      }
+      return snapshot;
+    }
+    function stopPolling() {
+      if (pollHandle) {
+        clearInterval(pollHandle);
+        pollHandle = null;
+      }
+    }
+    function stopPoseHeartbeat() {
+      if (poseHeartbeat) {
+        clearInterval(poseHeartbeat);
+        poseHeartbeat = null;
+      }
+    }
+    function beginPoseHeartbeat() {
+      stopPoseHeartbeat();
+      poseHeartbeat = setInterval(() => {
+        if (!poseSessionId || !lastPose) return;
+        pendingPose = [...lastPose];
+        void flushPose();
+      }, 100);
+    }
+    function beginPolling() {
+      stopPolling();
+      pollHandle = setInterval(poll, 100);
+    }
+    async function poll() {
+      try {
+        const snapshot = await request("/state");
+        applySnapshot(snapshot);
+        if (snapshot.connected && !pollHandle) beginPolling();
+      } catch (error) {
+        const uncertain = isActive();
+        poseSessionId = null;
+        lastPose = null;
+        stopPoseHeartbeat();
+        setState({ phase: uncertain ? "unknown-running" : "offline", error: `Connection lost: ${error.message}` });
+      }
+    }
+    async function check() {
+      if (!localBridgeOrigin && !pairingCode) {
+        setState({ phase: "pairing", snapshot: null, error: null });
+        return null;
+      }
+      try {
+        const health = await request("/health");
+        const snapshot = health.current || {
+          status: "disconnected",
+          connected: false,
+          motion_enabled: Boolean(health.motion_enabled),
+          configured_robot_ip: health.configured_robot_ip
+        };
+        applySnapshot(snapshot, { reconnect: true });
+        if (snapshot.connected || isActive()) beginPolling();
+        return health;
+      } catch (error) {
+        setState({ phase: isActive() ? "unknown-running" : "offline", error: error.message });
+        return null;
+      }
+    }
+    function setPairingCode(value) {
+      pairingCode = String(value || "").trim();
+      try {
+        if (pairingCode) sessionStorage.setItem(BRIDGE_CODE_KEY, pairingCode);
+        else sessionStorage.removeItem(BRIDGE_CODE_KEY);
+      } catch (error) {
+      }
+      return pairingCode;
+    }
+    function requiresPairingCode() {
+      return !localBridgeOrigin;
+    }
+    function getPairingCode() {
+      return pairingCode;
+    }
+    async function connect(code) {
+      if (!localBridgeOrigin) {
+        setPairingCode(code || pairingCode);
+        if (!pairingCode) throw new Error("Enter the pairing code shown by the FR5 connector");
+      }
+      setState({ phase: "connecting", error: null });
+      try {
+        const snapshot = await request("/connect", { method: "POST", body: "{}" });
+        applySnapshot(snapshot, { reconnect: true });
+        beginPolling();
+        return snapshot;
+      } catch (error) {
+        setState({ phase: "error", error: error.message, snapshot: error.body || state.snapshot });
+        throw error;
+      }
+    }
+    async function disconnect() {
+      pendingPose = null;
+      lastPose = null;
+      poseSessionId = null;
+      stopPoseHeartbeat();
+      const snapshot = await request("/disconnect", { method: "POST", body: "{}" });
+      stopPolling();
+      return applySnapshot(snapshot, { reconnect: true });
+    }
+    async function beginPoseControl() {
+      if (poseEndPromise) await poseEndPromise;
+      if (poseSessionId) return poseSessionId;
+      const snapshot = await request("/servo/start", { method: "POST", body: "{}" });
+      poseSessionId = String(snapshot.servo_session_id || "");
+      if (!poseSessionId) throw new Error("FR5 helper did not create a live-control session");
+      poseSequence = 0;
+      lastPose = null;
+      beginPoseHeartbeat();
+      applySnapshot(snapshot);
+      beginPolling();
+      return poseSessionId;
+    }
+    async function flushPose() {
+      if (poseSending || !poseSessionId) return poseFlushPromise;
+      poseSending = true;
+      poseFlushPromise = (async () => {
+        try {
+          while (pendingPose && poseSessionId) {
+            const q = pendingPose;
+            pendingPose = null;
+            const snapshot = await request("/servo/target", {
+              method: "POST",
+              body: JSON.stringify({
+                servo_session_id: poseSessionId,
+                sequence: ++poseSequence,
+                q_rad: q
+              })
+            });
+            applySnapshot(snapshot);
+          }
+        } catch (error) {
+          pendingPose = null;
+          lastPose = null;
+          poseSessionId = null;
+          stopPoseHeartbeat();
+          setState({ phase: "error", error: error.message, snapshot: error.body || state.snapshot });
+        } finally {
+          poseSending = false;
+          poseFlushPromise = null;
+        }
+      })();
+      return poseFlushPromise;
+    }
+    function queuePose(q) {
+      if (!poseSessionId || !Array.isArray(q) || q.length !== 6) return false;
+      lastPose = q.map(Number);
+      pendingPose = [...lastPose];
+      void flushPose();
+      return true;
+    }
+    function endPoseControl() {
+      if (poseEndPromise) return poseEndPromise;
+      poseEndPromise = (async () => {
+        pendingPose = null;
+        lastPose = null;
+        stopPoseHeartbeat();
+        const session = poseSessionId;
+        poseSessionId = null;
+        if (!session) return state.snapshot;
+        if (poseFlushPromise) await poseFlushPromise;
+        try {
+          return applySnapshot(await request("/servo/stop", {
+            method: "POST",
+            body: JSON.stringify({ servo_session_id: session })
+          }));
+        } catch (error) {
+          setState({ phase: "error", error: error.message, snapshot: error.body || state.snapshot });
+          throw error;
+        }
+      })().finally(() => {
+        poseEndPromise = null;
+        notify();
+      });
+      return poseEndPromise;
+    }
+    async function start(payload) {
+      if (startPromise) return startPromise;
+      if (isActive()) throw new Error("An FR5 run is already active");
+      setState({ phase: "starting", error: null });
+      startPromise = (async () => {
+        try {
+          const snapshot = await request("/play", { method: "POST", body: JSON.stringify(payload) });
+          applySnapshot(snapshot);
+          beginPolling();
+          if (state.phase === "running") return snapshot;
+          if (!["positioning", "paused", "starting"].includes(state.phase)) {
+            throw new Error(snapshot.error || "FR5 did not start the program");
+          }
+          return await new Promise((resolve, reject) => {
+            const runId = snapshot.run_id;
+            let unsubscribe = () => {
+            };
+            const timeout = setTimeout(() => {
+              unsubscribe();
+              reject(new Error("FR5 did not finish moving to the selected starting pose"));
+            }, 18e4);
+            unsubscribe = onChange((view) => {
+              const current = view.snapshot || {};
+              if (runId && current.run_id && current.run_id !== runId) return;
+              if (view.phase === "running") {
+                clearTimeout(timeout);
+                unsubscribe();
+                resolve(current);
+              } else if (["completed", "aborted", "failed", "error", "offline"].includes(view.phase)) {
+                clearTimeout(timeout);
+                unsubscribe();
+                reject(new Error(current.error || view.error || "FR5 playback did not start"));
+              }
+            });
+          });
+        } catch (error) {
+          const snapshot = error.body && error.body.run_id ? error.body : null;
+          const uncertain = !Number.isInteger(error.status) && Boolean(snapshot?.run_id || state.snapshot?.run_id);
+          setState({ phase: uncertain ? "unknown-running" : "error", snapshot: snapshot || state.snapshot, error: error.message });
+          if (uncertain) beginPolling();
+          throw error;
+        } finally {
+          startPromise = null;
+        }
+      })();
+      return startPromise;
+    }
+    async function pause() {
+      if (!["positioning", "running"].includes(state.phase)) return state.snapshot;
+      const snapshot = await request("/pause", { method: "POST", body: "{}" });
+      return applySnapshot(snapshot, { reconnect: true });
+    }
+    async function resume() {
+      if (state.phase !== "paused") return state.snapshot;
+      const snapshot = await request("/resume", { method: "POST", body: "{}" });
+      applySnapshot(snapshot, { reconnect: true });
+      beginPolling();
+      return snapshot;
+    }
+    async function stop() {
+      pendingPose = null;
+      lastPose = null;
+      poseSessionId = null;
+      stopPoseHeartbeat();
+      const snapshot = await request("/stop", { method: "POST", body: "{}" });
+      return applySnapshot(snapshot, { reconnect: true });
+    }
+    function isRunning() {
+      return state.phase === "running";
+    }
+    function isPaused() {
+      return state.phase === "paused";
+    }
+    function isPausable() {
+      return ["positioning", "running"].includes(state.phase);
+    }
+    function isActive() {
+      return ["starting", "positioning", "running", "paused", "unknown-running"].includes(state.phase);
+    }
+    function isPoseActive() {
+      return state.phase === "servo" && Boolean(poseSessionId);
+    }
+    function isMotionBusy() {
+      return isActive() || state.phase === "servo" || Boolean(poseEndPromise);
+    }
+    function isConnected() {
+      return Boolean(state.snapshot?.connected) && !["offline", "disconnected"].includes(state.phase);
+    }
+    function elapsedSeconds() {
+      const snapshot = state.snapshot;
+      if (!snapshot) return 0;
+      const offset = Math.max(0, Number(snapshot.timeline_start_seconds) || 0);
+      if (state.phase === "completed" && Number.isFinite(Number(snapshot.timeline_end_seconds))) {
+        return Number(snapshot.timeline_end_seconds);
+      }
+      let elapsed = Number(snapshot.elapsed_seconds) || 0;
+      if (state.phase === "running") elapsed += (performance.now() - state.receivedAtMs) / 1e3;
+      return Math.max(0, offset + elapsed);
+    }
+    function latestResult() {
+      return state.snapshot;
+    }
+    function latestRobotQ() {
+      const q = state.snapshot?.robot?.actual_q_rad || state.snapshot?.actual_q_rad;
+      return Array.isArray(q) && q.length === 6 && q.every(Number.isFinite) ? q.map(Number) : null;
+    }
+    return {
+      check,
+      connect,
+      disconnect,
+      poll,
+      start,
+      pause,
+      resume,
+      stop,
+      onChange,
+      getState: getState2,
+      isRunning,
+      isPaused,
+      isPausable,
+      isActive,
+      isPoseActive,
+      isMotionBusy,
+      isConnected,
+      beginPoseControl,
+      queuePose,
+      endPoseControl,
+      elapsedSeconds,
+      latestResult,
+      latestRobotQ,
+      setPairingCode,
+      getPairingCode,
+      requiresPairingCode
+    };
+  })();
+  var RobotLive = RobotMode.isFR5 ? FR5Live : LiveSync;
   var Timeline = (function() {
     const {
       withTimestamps: withTimestamps2,
@@ -33859,7 +34381,7 @@ move_frame("base", basePose, existingBaseParent)`;
   } = Sequence;
   var { POSE_HOME, POSE_ZERO, POSE_UP } = Kinematics;
   var { PROFILE, isJointVector, pathIsLegal } = MoveJEngine;
-  var { initJog, step: jogStep, syncSlidersFromQ } = Jog;
+  var { initJog, step: jogStep, syncSlidersFromQ, isInteracting: isJogInteracting } = Jog;
   var { buildURPXBlob, buildURScript } = UrpxExport;
   var { buildFairinoLua } = FairinoExport;
   var { showToast } = Toast;
@@ -33937,22 +34459,26 @@ move_frame("base", basePose, existingBaseParent)`;
         importInput.disabled = false;
         importInput.accept = ".lua,text/plain";
       }
+      document.getElementById("fr5-live-card")?.removeAttribute("hidden");
       document.querySelector(".playback-mode")?.setAttribute("hidden", "");
-      document.getElementById("ur20-live-status")?.setAttribute("hidden", "");
-      document.getElementById("live-run-strip")?.setAttribute("hidden", "");
-      document.getElementById("run-history-list")?.closest(".inspector-section")?.setAttribute("hidden", "");
+      document.getElementById("ur20-live-status")?.removeAttribute("hidden");
+      set("live-strip-robot-label", "FR5 live");
+      set("live-strip-state-label", "Robot state");
+      set("live-stop-btn", "Stop FR5");
+      const runHeading = document.querySelector("#run-history-list")?.closest(".inspector-section")?.querySelector("h2");
+      if (runHeading) runHeading.textContent = "Recent FR5 runs";
       const required = document.querySelector(".technical-details");
       if (required) {
-        required.querySelector("summary").textContent = "Qualified simulator configuration";
+        required.querySelector("summary").textContent = "Required FR5 configuration";
         const grid = required.querySelector(".profile-grid");
-        if (grid) grid.innerHTML = "<span>Robot / model</span><b>FR5-WML / 803</b><span>Simulation software</span><b>SimMachine 3.9.8</b><span>Use</span><b>Simulator only</b>";
+        if (grid) grid.innerHTML = "<span>Robot / model</span><b>FR5-WML / 803</b><span>Controller profile</span><b>8 ms ServoJ</b><span>Physical commissioning</span><b>Reduced speed first</b>";
       }
       const legal = document.getElementById("model-legal-note");
-      if (legal) legal.textContent = "FR5-WML model 803 visual geometry is derived from the locally installed FAIRINO SimMachine WebApp and is for local simulator use only.";
+      if (legal) legal.textContent = "FR5-WML model 803 visual geometry is derived from the locally installed FAIRINO SimMachine WebApp. Physical motion remains governed by the robot controller and its safety configuration.";
       const confirmTitle = document.querySelector(".confirmation-card strong");
-      if (confirmTitle) confirmTitle.textContent = "Simulator setup reviewed";
+      if (confirmTitle) confirmTitle.textContent = "Robot setup reviewed";
       const confirmHelp = document.querySelector(".confirmation-card small");
-      if (confirmHelp) confirmHelp.textContent = "Required before Lua export. This mode does not connect to a physical robot.";
+      if (confirmHelp) confirmHelp.textContent = "Required before Lua export or live playback. Reconfirm after a robot, payload, TCP, mounting, safety, or controller-software change.";
     }
   }
   configureRobotModeUI();
@@ -34080,7 +34606,7 @@ move_frame("base", basePose, existingBaseParent)`;
     }
   }
   async function startNewProject({ skipConfirmation = false } = {}) {
-    if (LiveSync.isActive()) {
+    if (RobotLive.isActive()) {
       showToast("Stop the active robot session before starting a new project", "warn", 5500);
       return false;
     }
@@ -34160,6 +34686,9 @@ move_frame("base", basePose, existingBaseParent)`;
   var poseDraftDirty = false;
   var poseDraftTimer = null;
   var poseEditNotice = "";
+  var fr5PoseGestureActive = false;
+  var fr5PoseGestureStartPromise = null;
+  var fr5LatestGestureQ = null;
   function describePoseRetime(result) {
     if (!result || !Number.isFinite(result.editedDurationSteps)) return "Pose updated";
     const edited = (result.editedDurationSteps * PROFILE.controllerPeriod).toFixed(3);
@@ -34252,6 +34781,10 @@ move_frame("base", basePose, existingBaseParent)`;
   }
   function handleAuthoredPoseChange(q) {
     setRobotPose(q);
+    if (RobotMode.isFR5 && fr5PoseGestureActive) {
+      fr5LatestGestureQ = [...q];
+      FR5Live.queuePose(q);
+    }
     if (!editingWaypointId || getState().selectedId !== editingWaypointId) return;
     poseDraftQ = [...q];
     poseDraftDirty = true;
@@ -34268,7 +34801,7 @@ move_frame("base", basePose, existingBaseParent)`;
     const block = withTimestamps(state.waypoints).find((item) => item.id === id);
     if (!block) return null;
     activateInspectorTab("block");
-    if (!LiveSync.isActive()) {
+    if (!RobotLive.isActive()) {
       audio.pause();
       syncPlayButtons(false);
       audio.seekTo(block.start);
@@ -34917,9 +35450,51 @@ move_frame("base", basePose, existingBaseParent)`;
       showJointPasteError("Clipboard access was blocked. Paste into the box with Ctrl+V.");
     }
   });
+  var fr5LivePoseEl = document.getElementById("fr5-live-pose-enabled");
+  var fr5OperatorReadyEl = document.getElementById("fr5-operator-ready");
+  async function beginFr5PoseGesture() {
+    if (!RobotMode.isFR5 || !fr5LivePoseEl?.checked || !fr5OperatorReadyEl?.checked || !FR5Live.isConnected() || FR5Live.isActive()) return;
+    fr5PoseGestureActive = true;
+    fr5LatestGestureQ = [...getState().robotQ];
+    if (fr5PoseGestureStartPromise) return;
+    fr5PoseGestureStartPromise = (async () => {
+      try {
+        await FR5Live.beginPoseControl();
+        if (!fr5PoseGestureActive) {
+          await FR5Live.endPoseControl();
+          return;
+        }
+        if (fr5LatestGestureQ) FR5Live.queuePose(fr5LatestGestureQ);
+      } catch (error) {
+        fr5PoseGestureActive = false;
+        if (fr5LivePoseEl) fr5LivePoseEl.checked = false;
+        document.documentElement.dataset.fr5LiveControl = "false";
+        showToast(`Live pose control blocked: ${error.message}`, "error", 6500);
+      } finally {
+        fr5PoseGestureStartPromise = null;
+      }
+    })();
+  }
+  async function endFr5PoseGesture() {
+    if (!RobotMode.isFR5 || !fr5PoseGestureActive) return;
+    fr5PoseGestureActive = false;
+    fr5LatestGestureQ = null;
+    try {
+      if (fr5PoseGestureStartPromise) await fr5PoseGestureStartPromise;
+      await FR5Live.endPoseControl();
+    } catch (error) {
+      showToast(`FR5 stop needs attention: ${error.message}`, "error", 6500);
+    }
+  }
   initJog({
     container: document.getElementById("jsliders"),
-    onPoseChange: handleAuthoredPoseChange
+    onPoseChange: handleAuthoredPoseChange,
+    onInteractionStart: () => {
+      void beginFr5PoseGesture();
+    },
+    onInteractionEnd: () => {
+      void endFr5PoseGesture();
+    }
   });
   var insertPrompt = document.getElementById("tl-insert-prompt");
   var insertDurInp = document.getElementById("tl-insert-dur-inp");
@@ -35058,7 +35633,7 @@ move_frame("base", basePose, existingBaseParent)`;
   function renderClockSource() {
     const label = document.getElementById("tl-sync-source");
     if (!label) return;
-    label.textContent = LiveSync.isRunning() ? "Clock: robot" : audio.hasAudio() ? "Clock: music master" : "Clock: timeline";
+    label.textContent = RobotLive.isRunning() ? "Clock: robot" : audio.hasAudio() ? "Clock: music master" : "Clock: timeline";
   }
   renderClockSource();
   document.getElementById("tl-zoom-in-btn").addEventListener("click", () => timeline.setZoom(timeline.getZoom() * 1.4));
@@ -35071,12 +35646,12 @@ move_frame("base", basePose, existingBaseParent)`;
       tlOpenBtn.classList.add("active");
       tlOpenBtn.setAttribute("aria-expanded", "true");
       timeline.render(getState().waypoints, getState().selectedId, audio.getDuration(), getState().initialPose);
-    } else if (!LiveSync.isActive()) {
+    } else if (!RobotLive.isActive()) {
       timeline.close();
       tlOpenBtn.classList.remove("active");
       tlOpenBtn.setAttribute("aria-expanded", "false");
     } else {
-      showToast("The timeline stays visible while a UR20 run may be active", "warn");
+      showToast(`The timeline stays visible while a ${RobotMode.profile.shortName} run may be active`, "warn");
     }
   });
   timeline.open();
@@ -35086,6 +35661,16 @@ move_frame("base", basePose, existingBaseParent)`;
   var liveEnabledEl = document.getElementById("ur20-live-enabled");
   var liveStatusEl = document.getElementById("ur20-live-status");
   var playButtonEl = document.getElementById("tl-play-btn");
+  var fr5ConnectionBadgeEl = document.getElementById("fr5-connection-badge");
+  var fr5RobotAddressEl = document.getElementById("fr5-robot-address");
+  var fr5ConnectButtonEl = document.getElementById("fr5-connect-btn");
+  var fr5DisconnectButtonEl = document.getElementById("fr5-disconnect-btn");
+  var fr5ReadPoseButtonEl = document.getElementById("fr5-read-pose-btn");
+  var fr5LiveCopyEl = document.getElementById("fr5-live-copy");
+  var fr5PanelStatusEl = document.getElementById("fr5-live-panel-status");
+  var fr5PairingRowEl = document.getElementById("fr5-pairing-row");
+  var fr5BridgeCodeEl = document.getElementById("fr5-bridge-code");
+  if (fr5BridgeCodeEl) fr5BridgeCodeEl.value = FR5Live.getPairingCode();
   var handledLiveTerminalRunId = null;
   var pendingPlaybackEndTime = null;
   var liveStripEl = document.getElementById("live-run-strip");
@@ -35105,11 +35690,11 @@ move_frame("base", basePose, existingBaseParent)`;
     const title = document.createElement("strong");
     title.textContent = valid ? `${actual.toFixed(3)} s` : result.status === "aborted" ? "Stopped" : "No valid duration";
     const status = document.createElement("strong");
-    status.textContent = valid ? "RTDE verified" : String(result.status || "invalid");
+    status.textContent = valid ? RobotMode.isFR5 ? "Robot completed" : "RTDE verified" : String(result.status || "invalid");
     const identity = document.createElement("span");
     identity.textContent = `Run ${String(result.run_id || "unknown").slice(0, 8)}`;
     const detail = document.createElement("span");
-    detail.textContent = valid ? "Complete run · waits included" : result.error || "Measurement did not pass completeness checks";
+    detail.textContent = valid ? RobotMode.isFR5 ? "Controller reported a complete run" : "Complete run · waits included" : result.error || "Measurement did not pass completeness checks";
     item.append(title, status, identity, detail);
     runHistoryListEl.prepend(item);
     while (runHistoryListEl.children.length > 8) runHistoryListEl.lastElementChild.remove();
@@ -35117,25 +35702,26 @@ move_frame("base", basePose, existingBaseParent)`;
   function updateLiveStrip(view) {
     const phase = view.phase || "offline";
     const result = view.snapshot || {};
-    const active = ["starting", "running", "unknown-running"].includes(phase);
+    const robot = result.robot || {};
+    const active = ["starting", "positioning", "running", "paused", "unknown-running"].includes(phase);
     const show = active || ["failed", "aborted"].includes(phase);
     liveStripEl.hidden = !show;
     document.body.classList.toggle("has-live-strip", show);
     liveStripEl.classList.toggle("connection-lost", phase === "unknown-running" || phase === "failed");
     setText(
       "live-strip-phase",
-      phase === "unknown-running" ? "Connection uncertain" : phase === "starting" ? "Arming" : phase === "running" ? "Running" : phase === "aborted" ? "Stopped" : phase === "failed" ? "Failed" : "Ready"
+      phase === "unknown-running" ? "Connection uncertain" : phase === "starting" ? "Arming" : phase === "positioning" ? "Moving to start" : phase === "paused" ? "Paused" : phase === "running" ? "Running" : phase === "aborted" ? "Stopped" : phase === "failed" ? "Failed" : "Ready"
     );
-    setText("live-strip-program", result.program_name || "Loaded in PolyScope");
-    setText("live-strip-elapsed", `${LiveSync.elapsedSeconds().toFixed(3)} s`);
+    setText("live-strip-program", result.program_name || (RobotMode.isFR5 ? "Uploaded choreography" : "Loaded in PolyScope"));
+    setText("live-strip-elapsed", `${RobotLive.elapsedSeconds().toFixed(3)} s`);
     setText(
       "live-strip-expected",
       Number.isFinite(Number(result.expected_seconds)) ? `${Number(result.expected_seconds).toFixed(3)} s` : "—"
     );
-    setText("live-strip-rtde", phase === "unknown-running" ? "Reconnect required" : active ? "Streaming" : phase === "failed" ? "Failed" : "Complete");
-    setText("live-strip-safety", result.safety || result.safety_mode || (active ? "Normal required" : "—"));
-    const scaling = Number(result.minimum_speed_scaling);
-    setText("live-strip-scaling", Number.isFinite(scaling) ? `${(scaling * 100).toFixed(1)}%` : "—");
+    setText("live-strip-rtde", phase === "unknown-running" ? "Reconnect required" : active ? RobotMode.isFR5 ? "Measured" : "Streaming" : phase === "failed" ? "Failed" : "Complete");
+    setText("live-strip-safety", result.safety || result.safety_mode || robot.safety || (robot.safe_to_move === true ? "Ready" : active ? "Normal required" : "—"));
+    const scaling = RobotMode.isFR5 ? Number(result.speed_cap_percent) : Number(result.minimum_speed_scaling);
+    setText("live-strip-scaling", Number.isFinite(scaling) ? RobotMode.isFR5 ? `${scaling.toFixed(0)}% cap` : `${(scaling * 100).toFixed(1)}%` : "—");
     setEditorLocked(active);
     renderClockSource();
   }
@@ -35148,7 +35734,7 @@ move_frame("base", basePose, existingBaseParent)`;
     else if (phase === "checking") liveStatusEl.textContent = "Bridge checking";
     else if (phase === "offline") liveStatusEl.textContent = "Bridge offline";
     else if (phase === "starting") liveStatusEl.textContent = "UR20 arming RTDE";
-    else if (phase === "running") liveStatusEl.textContent = `UR20 ${LiveSync.elapsedSeconds().toFixed(2)} s · ${result.program_name || "PLAYING"}`;
+    else if (phase === "running") liveStatusEl.textContent = `UR20 ${RobotLive.elapsedSeconds().toFixed(2)} s · ${result.program_name || "PLAYING"}`;
     else if (phase === "unknown-running") liveStatusEl.textContent = "Connection lost · robot may still be running";
     else if (phase === "completed") {
       const valid = validTerminalMeasurement(result);
@@ -35185,25 +35771,165 @@ move_frame("base", basePose, existingBaseParent)`;
       );
     }
   }
+  function validFR5Completion(result) {
+    return result?.status === "completed" && result.complete === true && result.program_state_edge_complete === true && Number.isFinite(Number(result.duration_seconds));
+  }
+  function fr5SafetyMessage(robot) {
+    if (!robot || !Object.keys(robot).length) return "Waiting for measured robot state";
+    if (robot.communication_ok === false) return "Robot communication is not healthy";
+    if (robot.emergency_stop === true) return "Physical emergency stop is active";
+    if (robot.safety_stop === true) return "Robot safety stop is active";
+    if (robot.enabled === false) return "Enable the robot from its physical controller";
+    if (robot.faulted === true) return "Clear the robot fault from its physical controller";
+    return robot.safe_to_move === true ? "Robot safety state is ready" : "Robot is not ready to move";
+  }
+  function renderFR5LiveStatus(view) {
+    const phase = view.phase || "offline";
+    const result = view.snapshot || {};
+    const robot = result.robot || {};
+    const connected = Boolean(result.connected);
+    const motionEnabled = Boolean(result.motion_enabled);
+    const active = FR5Live.isActive();
+    const q = FR5Live.latestRobotQ();
+    const operatorCanArm = connected && motionEnabled && !active && robot.safe_to_move === true;
+    const hasPairingCode = Boolean(fr5BridgeCodeEl?.value.trim());
+    if (fr5RobotAddressEl && result.configured_robot_ip) fr5RobotAddressEl.textContent = result.configured_robot_ip;
+    if (fr5ConnectionBadgeEl) {
+      fr5ConnectionBadgeEl.dataset.state = phase === "servo" ? "servo" : ["connecting", "positioning"].includes(phase) ? "connecting" : connected ? "connected" : phase === "error" ? "error" : "offline";
+      fr5ConnectionBadgeEl.textContent = phase === "servo" ? "Live movement" : phase === "positioning" ? "Moving to start…" : phase === "paused" ? "Paused" : phase === "connecting" ? "Connecting…" : connected ? "Connected" : phase === "pairing" ? "Pairing code needed" : phase === "disconnected" ? "Connector ready" : "Connector offline";
+    }
+    if (fr5ConnectButtonEl) {
+      fr5ConnectButtonEl.hidden = connected;
+      fr5ConnectButtonEl.disabled = phase === "connecting" || active || FR5Live.requiresPairingCode() && !hasPairingCode;
+    }
+    if (fr5DisconnectButtonEl) {
+      fr5DisconnectButtonEl.hidden = !connected;
+      fr5DisconnectButtonEl.disabled = active || phase === "servo";
+    }
+    if (fr5ReadPoseButtonEl) fr5ReadPoseButtonEl.disabled = !connected || !q || active || phase === "servo";
+    if (fr5PairingRowEl) fr5PairingRowEl.hidden = !FR5Live.requiresPairingCode() || connected;
+    if (fr5LiveCopyEl) {
+      fr5LiveCopyEl.textContent = !connected ? phase === "offline" || phase === "pairing" ? "Start FR5 Connector beside the robot, enter its pairing code, then choose Connect." : "Connect reads the robot pose and safety state. It does not move the robot." : !motionEnabled ? "Robot state is connected, but physical playback is not enabled in FR5 Connector." : "The timeline controls now operate the connected FR5.";
+    }
+    if (fr5OperatorReadyEl) {
+      fr5OperatorReadyEl.disabled = !operatorCanArm;
+      if (!operatorCanArm && !active) fr5OperatorReadyEl.checked = false;
+    }
+    const operatorReady = Boolean(fr5OperatorReadyEl?.checked && (operatorCanArm || active));
+    if (fr5LivePoseEl) {
+      fr5LivePoseEl.disabled = !operatorReady;
+      if (!operatorReady && fr5LivePoseEl.checked) {
+        fr5LivePoseEl.checked = false;
+        void endFr5PoseGesture();
+      }
+    }
+    document.documentElement.dataset.fr5LiveControl = String(Boolean(fr5LivePoseEl?.checked && operatorReady));
+    liveEnabledEl.checked = connected && motionEnabled;
+    liveEnabledEl.disabled = true;
+    liveStatusEl.className = phase;
+    liveStatusEl.dataset.phase = phase;
+    if (phase === "checking") liveStatusEl.textContent = "FR5 helper checking";
+    else if (phase === "pairing") liveStatusEl.textContent = "Start FR5 Connector and enter its code";
+    else if (phase === "offline") liveStatusEl.textContent = "FR5 helper offline";
+    else if (phase === "disconnected") liveStatusEl.textContent = "FR5 ready to connect";
+    else if (phase === "connecting") liveStatusEl.textContent = "Connecting to FR5";
+    else if (phase === "servo") liveStatusEl.textContent = "FR5 moving with pose control";
+    else if (phase === "positioning") liveStatusEl.textContent = `FR5 moving to ${Number(result.timeline_start_seconds || 0).toFixed(3)} s start pose`;
+    else if (phase === "paused") liveStatusEl.textContent = `FR5 paused at ${FR5Live.elapsedSeconds().toFixed(3)} s`;
+    else if (phase === "starting") liveStatusEl.textContent = "FR5 checking and starting";
+    else if (phase === "running") liveStatusEl.textContent = `FR5 ${FR5Live.elapsedSeconds().toFixed(2)} s · ${result.program_name || "PLAYING"}`;
+    else if (phase === "unknown-running") liveStatusEl.textContent = "Connection lost · FR5 may still be running";
+    else if (phase === "completed") liveStatusEl.textContent = `FR5 completed in ${Number(result.duration_seconds).toFixed(3)} s`;
+    else if (phase === "aborted") liveStatusEl.textContent = "FR5 stopped";
+    else if (phase === "failed" || phase === "error") liveStatusEl.textContent = `FR5: ${view.error || result.error || "needs attention"}`;
+    else liveStatusEl.textContent = motionEnabled ? "FR5 connected" : "FR5 connected read-only";
+    if (fr5PanelStatusEl) {
+      fr5PanelStatusEl.className = "fr5-live-status";
+      if (!connected) {
+        fr5PanelStatusEl.textContent = phase === "offline" ? "Start FR5 Connector, copy its pairing code here, then connect." : "The helper is ready. Choose Connect when the physical robot is available.";
+      } else if (!motionEnabled) {
+        fr5PanelStatusEl.textContent = "Connected read-only. Restart the helper with motion enabled to control or play the robot.";
+      } else if (phase === "servo") {
+        fr5PanelStatusEl.textContent = "Moving toward the slider while it is held. Release to stop.";
+        fr5PanelStatusEl.classList.add("is-moving");
+      } else if (phase === "positioning") {
+        fr5PanelStatusEl.textContent = "Play is safely moving the FR5 to the selected timeline pose first.";
+        fr5PanelStatusEl.classList.add("is-moving");
+      } else if (phase === "paused") {
+        fr5PanelStatusEl.textContent = "FR5 and timeline are paused together. Press Play to continue.";
+        fr5PanelStatusEl.classList.add("is-ready");
+      } else if (active) {
+        fr5PanelStatusEl.textContent = "Physical playback is active. Pause or Stop at any time.";
+        fr5PanelStatusEl.classList.add("is-moving");
+      } else {
+        fr5PanelStatusEl.textContent = fr5SafetyMessage(robot);
+        fr5PanelStatusEl.classList.add(robot.safe_to_move === true ? "is-ready" : "is-error");
+      }
+    }
+    if (q && (fr5LivePoseEl?.checked || active)) {
+      try {
+        setRobotPose(q);
+      } catch (error) {
+        console.error(error);
+      }
+    }
+    updateLiveStrip(view);
+    syncPlayButtons(audio.getIsPlaying());
+    if (!["completed", "failed", "aborted", "error"].includes(phase) || !result.run_id || result.run_id === handledLiveTerminalRunId) return;
+    handledLiveTerminalRunId = result.run_id;
+    audio.pause();
+    syncPlayButtons(false);
+    if (phase === "completed") {
+      const valid = validFR5Completion(result);
+      addRunHistory(result, valid);
+      if (valid) {
+        audio.seekTo(Number(result.timeline_end_seconds ?? result.duration_seconds));
+        showToast(`FR5 completed the choreography in ${Number(result.duration_seconds).toFixed(3)} s`, "success", 7e3);
+      } else showToast("FR5 stopped, but completion could not be confirmed", "error", 8e3);
+    } else {
+      audio.stop();
+      addRunHistory(result, false);
+      showToast(phase === "aborted" ? "FR5 playback stopped" : `FR5 playback failed: ${result.error || view.error || "unknown error"}`, phase === "aborted" ? "warn" : "error", 7e3);
+    }
+  }
   if (!RobotMode.isFR5) {
     LiveSync.onChange(renderLiveStatusV2);
     LiveSync.check();
   } else {
     liveEnabledEl.checked = false;
-    liveStatusEl.textContent = "FR5 offline preview";
+    liveEnabledEl.disabled = true;
+    FR5Live.onChange(renderFR5LiveStatus);
+    FR5Live.check();
   }
   async function requestPlayback() {
-    if (audio.getIsPlaying() || LiveSync.isActive()) return;
+    const end = Math.max(audio.getDuration(), getTotalDuration(getState().waypoints));
+    if (RobotMode.isFR5 && FR5Live.isPaused()) {
+      try {
+        const snapshot = await FR5Live.resume();
+        audio.play(FR5Live.elapsedSeconds(), end);
+        syncPlayButtons(true);
+        showToast(`FR5 resumed at ${FR5Live.elapsedSeconds().toFixed(3)} s`, "success");
+        return snapshot;
+      } catch (error) {
+        console.error(error);
+        showToast(`Could not resume FR5: ${error.message}`, "error", 7e3);
+        return;
+      }
+    }
+    if (audio.getIsPlaying() || RobotLive.isActive() || RobotMode.isFR5 && FR5Live.isMotionBusy()) return;
     pendingPlaybackEndTime = null;
     if (!commitPoseDraft().accepted) return;
-    const end = Math.max(audio.getDuration(), getTotalDuration(getState().waypoints));
     if (!(end > 0)) return;
-    if (!liveEnabledEl.checked) {
+    const physicalPlayback = RobotMode.isFR5 && FR5Live.isConnected();
+    if (!(RobotMode.isFR5 ? physicalPlayback : liveEnabledEl.checked)) {
       audio.play(void 0, end);
       syncPlayButtons(true);
       return;
     }
-    audio.stop();
+    const motionEnd = getTotalDuration(getState().waypoints);
+    let requestedStart = Math.max(0, audio.getCurrentTime());
+    if (RobotMode.isFR5 && requestedStart >= motionEnd - PROFILE.controllerPeriod / 2) requestedStart = 0;
+    audio.pause();
     audio.setLooping(false);
     document.getElementById("tl-loop-btn").classList.remove("looping");
     playButtonEl.disabled = true;
@@ -35214,18 +35940,43 @@ move_frame("base", basePose, existingBaseParent)`;
       const expectedSteps = Math.round(
         getTotalDuration(state.waypoints) / PROFILE.controllerPeriod
       );
-      const snapshot = await LiveSync.start({
+      const payload = {
         request_id: globalThis.crypto?.randomUUID?.() || `click-${Date.now()}-${Math.random().toString(16).slice(2)}`,
         initial_q: state.initialPose,
         expected_steps: expectedSteps,
         expected_seconds: expectedSteps * PROFILE.controllerPeriod,
         project_name: state.project.name
-      });
-      const elapsed = Math.max(0, Number(snapshot.elapsed_seconds) || 0);
+      };
+      if (RobotMode.isFR5) {
+        if (!fr5OperatorReadyEl?.checked) throw new Error("Confirm that you are beside the robot and ready");
+        if (!state.waypoints.some((block) => block.type === "moveJ")) throw new Error("Add at least one motion block before physical playback");
+        if (revalidateDurations()) throw new Error("Motion timing was refreshed. Review the timeline, then press Play again");
+        const liveProgram = buildFairinoLua({
+          waypoints: getState().waypoints,
+          robotQ: getState().initialPose,
+          programName: getState().project.name,
+          profileConfirmed: getState().project.profileConfirmed,
+          physical: true,
+          startTime: requestedStart
+        });
+        Object.assign(payload, {
+          trajectory: liveProgram.physicalTrajectory,
+          filename: liveProgram.filename,
+          profile_fingerprint: PROFILE.fingerprint,
+          operator_confirmed: true,
+          initial_q: liveProgram.physicalStartQ,
+          timeline_start_seconds: liveProgram.physicalStartSeconds,
+          timeline_end_seconds: liveProgram.physicalEndSeconds
+        });
+        payload.expected_steps = liveProgram.frameCount;
+        payload.expected_seconds = liveProgram.frameCount * PROFILE.controllerPeriod;
+      }
+      const snapshot = await RobotLive.start(payload);
+      const elapsed = RobotMode.isFR5 ? FR5Live.elapsedSeconds() : Math.max(0, Number(snapshot.elapsed_seconds) || 0);
       audio.play(elapsed, end);
       syncPlayButtons(true);
       showToast(
-        `RTDE start detected · playing ${snapshot.program_name || "loaded PolyScope program"}`,
+        RobotMode.isFR5 ? `FR5 started at ${Number(snapshot.timeline_start_seconds || 0).toFixed(3)} s` : `RTDE start detected · playing ${snapshot.program_name || "loaded PolyScope program"}`,
         "success",
         4500
       );
@@ -35233,16 +35984,31 @@ move_frame("base", basePose, existingBaseParent)`;
       console.error(error);
       audio.stop();
       syncPlayButtons(false);
-      showToast(`Synchronized Play blocked: ${error.message}`, "error", 8e3);
+      if (!/stopp?ed|aborted/i.test(String(error.message))) {
+        showToast(`Synchronized Play blocked: ${error.message}`, "error", 8e3);
+      }
     } finally {
       playButtonEl.textContent = oldLabel;
       syncPlayButtons(audio.getIsPlaying());
     }
   }
   playButtonEl.addEventListener("click", requestPlayback);
-  document.getElementById("tl-pause-btn").addEventListener("click", () => {
-    if (LiveSync.isActive()) {
-      showToast("Pause is disabled during RTDE-synchronized playback; use Stop if needed", "warn");
+  document.getElementById("tl-pause-btn").addEventListener("click", async () => {
+    if (RobotLive.isActive()) {
+      if (RobotMode.isFR5 && FR5Live.isPausable()) {
+        try {
+          const snapshot = await FR5Live.pause();
+          audio.pause();
+          if (Number.isFinite(Number(snapshot.timeline_start_seconds))) {
+            audio.seekTo(FR5Live.elapsedSeconds());
+          }
+          syncPlayButtons(false);
+          showToast(`FR5 paused at ${FR5Live.elapsedSeconds().toFixed(3)} s`, "info");
+        } catch (error) {
+          console.error(error);
+          showToast(`Could not pause FR5: ${error.message}`, "error", 7e3);
+        }
+      } else showToast(`Pause is unavailable during this ${RobotMode.profile.shortName} operation`, "warn");
       return;
     }
     audio.pause();
@@ -35250,15 +36016,14 @@ move_frame("base", basePose, existingBaseParent)`;
     syncPlayButtons(false);
   });
   document.getElementById("tl-stop-btn").addEventListener("click", async () => {
-    if (LiveSync.isActive()) {
+    if (RobotLive.isActive()) {
       try {
-        await LiveSync.stop();
-        showToast("Stop requested for the loaded PolyScope program", "warn");
+        await RobotLive.stop();
+        showToast(`${RobotMode.profile.shortName} stopped · timeline reset`, "info");
       } catch (error) {
         console.error(error);
-        showToast(`Could not stop PolyScope: ${error.message}`, "error");
+        showToast(`Could not stop ${RobotMode.profile.shortName}: ${error.message}`, "error");
       }
-      return;
     }
     audio.stop();
     pendingPlaybackEndTime = null;
@@ -35272,26 +36037,92 @@ move_frame("base", basePose, existingBaseParent)`;
     button.disabled = true;
     button.textContent = "Checking…";
     try {
-      const health = await LiveSync.check();
-      if (!health) showToast("The localhost RTDE bridge is still unavailable", "error", 5e3);
-      else showToast("RTDE bridge state refreshed", "success");
+      const health = await RobotLive.check();
+      if (!health) showToast(`The local ${RobotMode.profile.shortName} helper is still unavailable`, "error", 5e3);
+      else showToast(`${RobotMode.profile.shortName} connection state refreshed`, "success");
     } finally {
       button.disabled = false;
       button.textContent = "Reconnect";
     }
   });
+  if (RobotMode.isFR5) {
+    fr5BridgeCodeEl?.addEventListener("input", () => {
+      FR5Live.setPairingCode(fr5BridgeCodeEl.value);
+      renderFR5LiveStatus(FR5Live.getState());
+    });
+    fr5ConnectButtonEl?.addEventListener("click", async () => {
+      fr5ConnectButtonEl.disabled = true;
+      fr5ConnectButtonEl.textContent = "Connecting…";
+      try {
+        const snapshot = await FR5Live.connect(fr5BridgeCodeEl?.value);
+        const q = FR5Live.latestRobotQ();
+        if (q) setRobotPose(q);
+        showToast(snapshot.motion_enabled ? "FR5 connected" : "FR5 connected in read-only mode", "success", 5e3);
+      } catch (error) {
+        showToast(`Could not connect to FR5: ${error.message}`, "error", 7e3);
+      } finally {
+        fr5ConnectButtonEl.textContent = "Connect";
+      }
+    });
+    fr5DisconnectButtonEl?.addEventListener("click", async () => {
+      if (fr5LivePoseEl) fr5LivePoseEl.checked = false;
+      fr5OperatorReadyEl.checked = false;
+      liveEnabledEl.checked = false;
+      document.documentElement.dataset.fr5LiveControl = "false";
+      try {
+        await endFr5PoseGesture();
+        await FR5Live.disconnect();
+        showToast("FR5 disconnected", "info");
+      } catch (error) {
+        showToast(`FR5 disconnect needs attention: ${error.message}`, "error", 7e3);
+      }
+    });
+    fr5ReadPoseButtonEl?.addEventListener("click", () => {
+      const q = FR5Live.latestRobotQ();
+      if (!q) {
+        showToast("No fresh FR5 pose is available", "warn");
+        return;
+      }
+      setRobotPose(q);
+      showToast("Preview matched the measured FR5 pose", "success");
+    });
+    fr5OperatorReadyEl?.addEventListener("change", () => {
+      if (!fr5OperatorReadyEl.checked) {
+        if (fr5LivePoseEl) fr5LivePoseEl.checked = false;
+        liveEnabledEl.checked = false;
+        void endFr5PoseGesture();
+      }
+      renderFR5LiveStatus(FR5Live.getState());
+    });
+    fr5LivePoseEl?.addEventListener("change", () => {
+      const snapshot = FR5Live.getState().snapshot || {};
+      if (fr5LivePoseEl.checked && (!fr5OperatorReadyEl.checked || snapshot.robot?.safe_to_move !== true)) {
+        fr5LivePoseEl.checked = false;
+        showToast("The FR5 must be connected, safe, and operator-confirmed first", "warn", 5500);
+      }
+      if (!fr5LivePoseEl.checked) void endFr5PoseGesture();
+      document.documentElement.dataset.fr5LiveControl = String(fr5LivePoseEl.checked);
+      renderFR5LiveStatus(FR5Live.getState());
+    });
+    globalThis.addEventListener("blur", () => {
+      void endFr5PoseGesture();
+    });
+    document.addEventListener("visibilitychange", () => {
+      if (document.hidden) void endFr5PoseGesture();
+    });
+  }
   document.getElementById("tl-loop-btn").addEventListener("click", (e2) => {
-    if (liveEnabledEl.checked || LiveSync.isActive()) {
+    if ((RobotMode.isFR5 ? FR5Live.isConnected() : liveEnabledEl.checked) || RobotLive.isActive()) {
       audio.setLooping(false);
       e2.target.classList.remove("looping");
-      showToast("Looping is disabled while UR20 Live is enabled", "warn");
+      showToast(`Looping is disabled while ${RobotMode.profile.shortName} Live is enabled`, "warn");
       return;
     }
     audio.setLooping(!audio.getLooping());
     e2.target.classList.toggle("looping", audio.getLooping());
   });
   audio.setOnNaturalEnd((endTime) => {
-    if (!LiveSync.isActive()) {
+    if (!RobotLive.isActive()) {
       pendingPlaybackEndTime = Number(endTime);
       syncPlayButtons(false);
     }
@@ -35299,11 +36130,14 @@ move_frame("base", basePose, existingBaseParent)`;
   function syncPlayButtons(isPlaying) {
     const play = document.getElementById("tl-play-btn");
     const pause = document.getElementById("tl-pause-btn");
-    const liveActive = LiveSync.isActive();
-    play.hidden = Boolean(isPlaying) || liveActive;
-    play.disabled = liveActive;
-    pause.hidden = !isPlaying || liveActive;
-    pause.disabled = liveActive;
+    const liveActive = RobotLive.isActive();
+    const fr5Paused = RobotMode.isFR5 && FR5Live.isPaused();
+    const fr5Pausable = RobotMode.isFR5 && FR5Live.isPausable();
+    const robotBusy = liveActive || RobotMode.isFR5 && FR5Live.isMotionBusy();
+    play.hidden = Boolean(isPlaying) || robotBusy && !fr5Paused;
+    play.disabled = robotBusy && !fr5Paused;
+    pause.hidden = !(Boolean(isPlaying) || fr5Pausable);
+    pause.disabled = liveActive && !fr5Pausable;
     document.getElementById("tl-stop-btn").disabled = false;
   }
   document.getElementById("tl-load-btn").addEventListener("click", () => document.getElementById("tl-file-inp").click());
@@ -35788,7 +36622,7 @@ move_frame("base", basePose, existingBaseParent)`;
       setRobotPose(getState().initialPose);
     } finally {
       workspaceHydrating = priorHydrating;
-      setEditorLocked(LiveSync.isActive());
+      setEditorLocked(RobotLive.isActive());
     }
     markDocumentDirty(false);
     if (announce) {
@@ -35925,7 +36759,7 @@ move_frame("base", basePose, existingBaseParent)`;
       return { opened: false, autoRestore: false, robotModel: RobotMode.id, error: error.message };
     } finally {
       workspaceHydrating = false;
-      setEditorLocked(LiveSync.isActive());
+      setEditorLocked(RobotLive.isActive());
       if (pendingToken) {
         url.searchParams.delete("openProject");
         globalThis.history.replaceState(null, "", url.href);
@@ -36039,8 +36873,10 @@ move_frame("base", basePose, existingBaseParent)`;
     }
     if (e2.code === "Space") {
       e2.preventDefault();
-      if (LiveSync.isActive()) {
-        showToast("Pause is disabled during RTDE-synchronized playback; use Stop if needed", "warn");
+      if (RobotLive.isActive()) {
+        if (RobotMode.isFR5 && FR5Live.isPaused()) requestPlayback();
+        else if (RobotMode.isFR5 && FR5Live.isPausable()) document.getElementById("tl-pause-btn").click();
+        else showToast("This robot operation cannot be paused", "warn");
       } else if (audio.getIsPlaying()) {
         audio.pause();
         syncPlayButtons(false);
@@ -36076,12 +36912,12 @@ move_frame("base", basePose, existingBaseParent)`;
   function loop(now) {
     requestAnimationFrame(loop);
     jogStep();
-    const liveRunning = LiveSync.isRunning();
-    const liveLocked = LiveSync.isActive();
+    const liveRunning = RobotLive.isRunning();
+    const liveLocked = RobotLive.isActive();
     const audioWasPlaying = audio.getIsPlaying();
     const sampledAudioT = audio.getCurrentTime();
     const audioIsPlaying = audio.getIsPlaying();
-    const liveT = liveRunning ? LiveSync.elapsedSeconds() : null;
+    const liveT = liveRunning ? RobotLive.elapsedSeconds() : null;
     let playbackT = liveRunning ? liveT : sampledAudioT;
     let previewT = null;
     if (!liveLocked && timeline.isScrubbingNow()) {
@@ -36124,7 +36960,7 @@ move_frame("base", basePose, existingBaseParent)`;
     setInitialPose,
     importBlocks,
     audio,
-    liveSync: LiveSync,
+    liveSync: RobotLive,
     requestPlayback,
     recordAt,
     confirmInsert,

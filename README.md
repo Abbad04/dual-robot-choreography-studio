@@ -14,19 +14,40 @@ The application runs locally in the browser. It supports:
 - six-joint jogging and Cartesian target editing;
 - fixed-duration MoveJ and wait nodes;
 - timeline play, pause, seek, and optional audio;
+- optional connection to a physical FR5 through the included local connector;
 - `.fr5proj` and `.ur20proj` project save/open;
 - strict ASCII FAIRINO `RAW_*.lua` export at the 8 ms ServoJ clock;
 - URScript and URPX export in UR20 mode.
 
 No Docker installation is required for manual FR5 authoring, visualization, or
-Lua export. Direct controller verification, UR RTDE capture, and simulator
-launching are local companion features and are not available from GitHub Pages.
+Lua export. Physical FR5 playback uses the local connector included in this
+repository; the public webpage never exposes the robot to the internet.
+
+## Connect a physical FR5
+
+1. Download and extract this repository on the Windows computer connected to
+   the FR5. Install the official FAIRINO Python SDK version matching the robot
+   controller.
+2. Double-click **Start FR5 Connector.cmd**, enter the robot IP, approve
+   physical control, and leave its window open.
+3. Copy the pairing code shown in that window.
+4. Open the hosted app in **FR5-WML** mode, enter the code in **FR5
+   connection**, and choose **Connect**.
+5. Confirm **I am beside the robot and ready**. The normal timeline controls
+   now operate the connected FR5.
+
+**Play** begins at the current timeline cursor. If that cursor is in the middle
+of the sequence, the robot first moves to the pose at that point and playback
+starts only after it arrives. **Pause** pauses both robot and timeline; **Play**
+resumes both. **Stop** terminates the controller program and resets the timeline
+to zero. Stop does not initiate a return movement.
 
 ## Safety
 
-This is a simulator-authoring tool. It does not connect to or command a physical
-robot from the hosted site. Validate exported programs in FAIRINO SimMachine,
-then perform the manufacturer-required risk assessment before physical use.
+Physical playback is for supervised commissioning and is not a safety-rated
+teach pendant. Begin in reduced-speed mode, keep the workcell clear and the
+physical emergency stop reachable, and perform the manufacturer-required risk
+assessment before use. The connector defaults to 10% playback speed.
 
 ## Authors
 
