@@ -45,7 +45,13 @@ else
   exit 1
 fi
 
-ARGS=("--robot-ip" "$ROBOT_IP" "--results-dir" "runs/fr5-live")
+RESULTS_DIR="$HOME/Library/Application Support/FR5 Choreography Connector"
+if ! mkdir -p "$RESULTS_DIR"; then
+  echo "Could not create the connector data folder: $RESULTS_DIR"
+  read -r "?Press Return to close."
+  exit 1
+fi
+ARGS=("--robot-ip" "$ROBOT_IP" "--results-dir" "$RESULTS_DIR")
 if [[ "$MOTION_REPLY" == "YES" ]]; then
   ARGS+=("--allow-motion")
 else

@@ -100,6 +100,15 @@ def _utc_now() -> str:
     return datetime.now(timezone.utc).isoformat()
 
 
+def _absolute_path(path: str | os.PathLike[str]) -> Path:
+    """Make a path absolute without asking macOS to resolve protected parents."""
+
+    candidate = Path(path).expanduser()
+    if candidate.is_absolute():
+        return candidate
+    return Path(os.path.abspath(os.fspath(candidate)))
+
+
 def _error_code(result: object, operation: str) -> int:
     value = result[0] if isinstance(result, (tuple, list)) else result
     if isinstance(value, bool) or not isinstance(value, (int, float)):
@@ -524,7 +533,7 @@ class Fr5LiveBridge:
         clock: Any = time.monotonic,
     ) -> None:
         self.robot_ip = _private_ipv4(robot_ip)
-        self.results_directory = Path(results_directory).resolve()
+        self.results_directory = _absolute_path(results_directory)
         self.runs_directory = self.results_directory / "runs"
         self.adapter = adapter or FairinoSdkAdapter()
         self.allow_motion = bool(allow_motion)
@@ -1940,6 +1949,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         raise SystemExit(
             "playback above 25% requires the explicit --allow-full-speed startup flag"
         )
+    results_path = _absolute_path(args.results_dir)
     repository_root = Path(__file__).resolve().parents[2]
     development_frontend = repository_root / "choreography-app" / "index.html"
     deployed_frontend = repository_root / "index.html"
@@ -1954,14 +1964,14 @@ def main(argv: Sequence[str] | None = None) -> int:
         # editor because the operator uses the deployed HTTPS app.  Keep a
         # fixed local landing page so the loopback origin still serves only
         # reviewed content.
-        frontend_path = Path(args.results_dir).resolve() / "connector.html"
+        frontend_path = results_path / "connector.html"
         frontend_path.parent.mkdir(parents=True, exist_ok=True)
         frontend_path.write_text(_CONNECTOR_LANDING_HTML, encoding="utf-8")
     if not frontend_path.is_file():
         raise SystemExit("trusted choreography frontend is unavailable; pass --frontend")
     bridge = Fr5LiveBridge(
         robot_ip=args.robot_ip,
-        results_directory=args.results_dir,
+        results_directory=results_path,
         allow_motion=args.allow_motion,
         jog_speed_deg_s=args.jog_speed_deg_s,
         playback_speed_percent=args.playback_speed_percent,
@@ -1970,7 +1980,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     server = _BridgeHTTPServer(
         ("127.0.0.1", args.port), bridge, frontend_path=frontend_path
     )
-    status_path = Path(args.results_dir).resolve() / "server.json"
+    status_path = results_path / "server.json"
     status_path.parent.mkdir(parents=True, exist_ok=True)
     status_path.write_text(
         json.dumps(
