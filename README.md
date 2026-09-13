@@ -25,16 +25,26 @@ repository; the public webpage never exposes the robot to the internet.
 
 ## Connect a physical FR5
 
-1. Download and extract this repository on the Windows computer connected to
-   the FR5. Install the official FAIRINO Python SDK version matching the robot
-   controller.
-2. Double-click **Start FR5 Connector.cmd**, enter the robot IP, approve
-   physical control, and leave its window open.
+1. On macOS, use the app's **Download for macOS** button and extract the entire
+   **FR5 Connector** folder. It contains standalone Apple Silicon and Intel
+   builds and does not require Python, Docker, Homebrew, or a compiler. On
+   Windows/Linux, download and extract this repository and install the official
+   FAIRINO Python SDK matching the controller.
+2. Connect that computer to the FR5 by Ethernet. On macOS, double-click
+   **Start FR5 Connector.command**; on Windows, double-click
+   **Start FR5 Connector.cmd**. Enter the robot IP, approve physical control,
+   and leave its window open.
 3. Copy the pairing code shown in that window.
 4. Open the hosted app in **FR5-WML** mode, enter the code in **FR5
    connection**, and choose **Connect**.
 5. Confirm **I am beside the robot and ready**. The normal timeline controls
    now operate the connected FR5.
+
+On its first connection, the Mac package reads the controller version without
+moving the robot and downloads the matching official FAIRINO pure-Python SDK
+source from an immutable revision. It verifies the exact size and SHA-256 before
+use. Keep Wi-Fi available during this one-time setup. Versions 3.9.4 through
+3.9.9 are currently pinned; other versions fail before motion is enabled.
 
 **Play** begins at the current timeline cursor. If that cursor is in the middle
 of the sequence, the robot first moves to the pose at that point and playback

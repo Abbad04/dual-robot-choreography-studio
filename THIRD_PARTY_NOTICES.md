@@ -50,3 +50,15 @@ assets. No open license or redistribution permission is asserted. Obtain
 FAIRINO authorization before redistributing a package that contains them. The
 standalone build records their individual SHA-256 hashes in
 `globalThis.__FR5_BUILD_METADATA__`.
+
+## Official FAIRINO Python SDK source for the macOS connector
+
+- Project: <https://github.com/FAIR-INNOVATION/fairino-python-sdk>
+- License: Apache License 2.0
+- Use: the macOS connector downloads only the `linux/fairino/Robot.py` source
+  matching the robot's reported WebApp version from an immutable FAIRINO commit.
+
+The connector verifies the pinned byte count and SHA-256 digest before caching
+or importing the source. The upstream SDK source and license remain copyright
+their respective owners. No modified FAIRINO SDK source is included in this
+repository or connector package.

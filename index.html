@@ -821,9 +821,10 @@ body.editor-locked #tl-open-btn{opacity:.48}
           <span>Pairing code</span>
           <input id="fr5-bridge-code" type="password" autocomplete="off" spellcheck="false" placeholder="Code from FR5 Connector">
         </label>
-        <p class="fr5-live-copy" id="fr5-live-copy">Start FR5 Connector beside the robot, enter its pairing code, then choose Connect.</p>
+        <p class="fr5-live-copy" id="fr5-live-copy">Start the connector for this computer beside the robot, enter its pairing code, then choose Connect.</p>
         <div class="fr5-live-actions">
-          <a class="btn btn-outline" id="fr5-connector-download" href="https://github.com/abbad04/dual-robot-choreography-studio/archive/refs/heads/main.zip" target="_blank" rel="noopener noreferrer">Download connector</a>
+          <a class="btn btn-outline" id="fr5-connector-download" href="https://github.com/Abbad04/dual-robot-choreography-studio/releases/latest/download/FR5-Connector-macOS.zip" target="_blank" rel="noopener noreferrer">Download for macOS</a>
+          <a class="btn btn-outline" id="fr5-windows-connector-download" href="https://github.com/Abbad04/dual-robot-choreography-studio/archive/refs/heads/main.zip" target="_blank" rel="noopener noreferrer">Windows / Linux files</a>
           <button class="btn btn-outline" id="fr5-read-pose-btn" type="button" disabled>Use robot pose</button>
         </div>
         <label class="fr5-operator-check" for="fr5-operator-ready">
@@ -35809,7 +35810,7 @@ move_frame("base", basePose, existingBaseParent)`;
     if (fr5ReadPoseButtonEl) fr5ReadPoseButtonEl.disabled = !connected || !q || active || phase === "servo";
     if (fr5PairingRowEl) fr5PairingRowEl.hidden = !FR5Live.requiresPairingCode() || connected;
     if (fr5LiveCopyEl) {
-      fr5LiveCopyEl.textContent = !connected ? phase === "offline" || phase === "pairing" ? "Start FR5 Connector beside the robot, enter its pairing code, then choose Connect." : "Connect reads the robot pose and safety state. It does not move the robot." : !motionEnabled ? "Robot state is connected, but physical playback is not enabled in FR5 Connector." : "The timeline controls now operate the connected FR5.";
+      fr5LiveCopyEl.textContent = !connected ? phase === "offline" || phase === "pairing" ? "Start the macOS or Windows connector beside the robot, enter its pairing code, then choose Connect." : "Connect reads the robot pose and safety state. It does not move the robot." : !motionEnabled ? "Robot state is connected, but physical playback is not enabled in FR5 Connector." : "The timeline controls now operate the connected FR5.";
     }
     if (fr5OperatorReadyEl) {
       fr5OperatorReadyEl.disabled = !operatorCanArm;
@@ -35829,7 +35830,7 @@ move_frame("base", basePose, existingBaseParent)`;
     liveStatusEl.className = phase;
     liveStatusEl.dataset.phase = phase;
     if (phase === "checking") liveStatusEl.textContent = "FR5 helper checking";
-    else if (phase === "pairing") liveStatusEl.textContent = "Start FR5 Connector and enter its code";
+    else if (phase === "pairing") liveStatusEl.textContent = "Start the FR5 connector and enter its code";
     else if (phase === "offline") liveStatusEl.textContent = "FR5 helper offline";
     else if (phase === "disconnected") liveStatusEl.textContent = "FR5 ready to connect";
     else if (phase === "connecting") liveStatusEl.textContent = "Connecting to FR5";
@@ -35846,7 +35847,7 @@ move_frame("base", basePose, existingBaseParent)`;
     if (fr5PanelStatusEl) {
       fr5PanelStatusEl.className = "fr5-live-status";
       if (!connected) {
-        fr5PanelStatusEl.textContent = phase === "offline" ? "Start FR5 Connector, copy its pairing code here, then connect." : "The helper is ready. Choose Connect when the physical robot is available.";
+        fr5PanelStatusEl.textContent = phase === "offline" ? "Start the FR5 connector, copy its pairing code here, then connect." : "The helper is ready. Choose Connect when the physical robot is available.";
       } else if (!motionEnabled) {
         fr5PanelStatusEl.textContent = "Connected read-only. Restart the helper with motion enabled to control or play the robot.";
       } else if (phase === "servo") {

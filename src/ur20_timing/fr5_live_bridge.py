@@ -31,6 +31,7 @@ import os
 from pathlib import Path
 import re
 import secrets
+import sys
 import threading
 import time
 from typing import Any, Mapping, Protocol, Sequence
@@ -68,6 +69,15 @@ JOINT_MAX_SPEED_RAD_S = tuple(
 JOINT_MAX_ACCELERATION_RAD_S2 = tuple(math.radians(360) for _ in range(6))
 TERMINAL_RUN_STATES = frozenset({"completed", "aborted", "failed"})
 _PROGRAM_NAME = re.compile(r"RAW_[A-Za-z0-9_]{1,80}\.lua\Z", re.ASCII)
+_CONNECTOR_LANDING_HTML = """<!doctype html>
+<html lang="en"><meta charset="utf-8"><title>FR5 Connector</title>
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<body style="font:16px system-ui;max-width:42rem;margin:4rem auto;padding:0 1rem;line-height:1.5">
+<h1>FR5 Connector is running</h1>
+<p>Use the pairing code shown in the connector window on the deployed
+choreography web app. Keep the connector window open while operating the robot.</p>
+</body></html>
+"""
 
 
 class Fr5BridgeError(RuntimeError):
@@ -243,12 +253,20 @@ class FairinoSdkAdapter:
             return
         factory = self._robot_factory
         if factory is None:
-            try:
-                from fairino import Robot  # type: ignore[import-not-found]
-            except ImportError as exc:
-                raise Fr5BridgeError(
-                    "the FAIRINO Python SDK is not installed; install the SDK version matching the robot controller"
-                ) from exc
+            if sys.platform == "darwin":
+                try:
+                    from .fr5_macos_sdk import load_official_robot_module
+
+                    Robot = load_official_robot_module(robot_ip)
+                except Exception as exc:
+                    raise Fr5BridgeError(str(exc)) from exc
+            else:
+                try:
+                    from fairino import Robot  # type: ignore[import-not-found]
+                except ImportError as exc:
+                    raise Fr5BridgeError(
+                        "the FAIRINO Python SDK is not installed; install the SDK version matching the robot controller"
+                    ) from exc
             factory = Robot.RPC
         try:
             robot = factory(robot_ip)
@@ -1925,9 +1943,20 @@ def main(argv: Sequence[str] | None = None) -> int:
     repository_root = Path(__file__).resolve().parents[2]
     development_frontend = repository_root / "choreography-app" / "index.html"
     deployed_frontend = repository_root / "index.html"
-    frontend_path = Path(args.frontend).resolve() if args.frontend else (
-        development_frontend if development_frontend.is_file() else deployed_frontend
-    )
+    if args.frontend:
+        frontend_path = Path(args.frontend).resolve()
+    elif development_frontend.is_file():
+        frontend_path = development_frontend
+    elif deployed_frontend.is_file():
+        frontend_path = deployed_frontend
+    else:
+        # Standalone macOS connector builds do not need to bundle the 16 MB
+        # editor because the operator uses the deployed HTTPS app.  Keep a
+        # fixed local landing page so the loopback origin still serves only
+        # reviewed content.
+        frontend_path = Path(args.results_dir).resolve() / "connector.html"
+        frontend_path.parent.mkdir(parents=True, exist_ok=True)
+        frontend_path.write_text(_CONNECTOR_LANDING_HTML, encoding="utf-8")
     if not frontend_path.is_file():
         raise SystemExit("trusted choreography frontend is unavailable; pass --frontend")
     bridge = Fr5LiveBridge(
