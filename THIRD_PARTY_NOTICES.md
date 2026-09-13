@@ -55,10 +55,11 @@ standalone build records their individual SHA-256 hashes in
 
 - Project: <https://github.com/FAIR-INNOVATION/fairino-python-sdk>
 - License: Apache License 2.0
-- Use: the macOS connector downloads only the `linux/fairino/Robot.py` source
-  matching the robot's reported WebApp version from an immutable FAIRINO commit.
+- Use: the macOS connector contains only the unmodified `linux/fairino/Robot.py`
+  sources for supported WebApp versions, each from an immutable FAIRINO commit.
 
-The connector verifies the pinned byte count and SHA-256 digest before caching
-or importing the source. The upstream SDK source and license remain copyright
-their respective owners. No modified FAIRINO SDK source is included in this
-repository or connector package.
+The connector selects the source matching the robot-reported version and
+verifies its pinned byte count and SHA-256 digest immediately before execution.
+The upstream SDK source and license remain copyright their respective owners.
+The connector package includes the upstream Apache License 2.0 text as
+`FAIRINO-SDK-LICENSE.txt`; no modified FAIRINO SDK source is distributed.

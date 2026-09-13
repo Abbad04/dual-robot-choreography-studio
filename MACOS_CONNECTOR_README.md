@@ -7,7 +7,7 @@ the correct version automatically; no Python installation is needed.
 
 1. Extract the ZIP. Keep the complete **FR5 Connector** folder together.
 2. Connect the Mac to the FR5 controller by Ethernet. The controller normally
-   uses `192.168.58.2`; keep Wi-Fi connected for the first setup download.
+   uses `192.168.58.2`.
 3. Power on and enable the FR5. Clear the workcell, select reduced-speed mode,
    and keep the physical emergency stop reachable.
 4. Double-click **Start FR5 Connector.command**. If macOS blocks the first
@@ -18,11 +18,11 @@ the correct version automatically; no Python installation is needed.
    choreography web app and choose **Connect**.
 7. After the robot is connected, check **I am beside the robot and ready**.
 
-The first Connect downloads the official FAIRINO pure-Python SDK source that
-exactly matches the controller's WebApp version, verifies its pinned SHA-256
-digest, and caches it under the user's Library. No compiler, Docker, Homebrew,
-or separate SDK installation is required. WebApp versions 3.9.4 through 3.9.9
-are currently pinned. Unsupported versions fail before motion is enabled.
+The package contains the unmodified official FAIRINO pure-Python SDK source for
+WebApp versions 3.9.4 through 3.9.9. The connector selects the exact controller
+version and verifies its pinned SHA-256 digest before loading it. No internet,
+compiler, Docker, Homebrew, Python installation, or separate SDK installation
+is required. Unsupported versions fail before motion is enabled.
 
 Play starts at the selected timeline position. If that position is in the
 middle, the FR5 first moves at reduced speed to the matching pose and then

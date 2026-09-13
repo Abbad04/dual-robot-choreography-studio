@@ -40,11 +40,11 @@ repository; the public webpage never exposes the robot to the internet.
 5. Confirm **I am beside the robot and ready**. The normal timeline controls
    now operate the connected FR5.
 
-On its first connection, the Mac package reads the controller version without
-moving the robot and downloads the matching official FAIRINO pure-Python SDK
-source from an immutable revision. It verifies the exact size and SHA-256 before
-use. Keep Wi-Fi available during this one-time setup. Versions 3.9.4 through
-3.9.9 are currently pinned; other versions fail before motion is enabled.
+On connection, the Mac package reads the controller version without moving the
+robot and selects the matching bundled official FAIRINO pure-Python SDK source.
+It verifies the exact size and SHA-256 immediately before use. No internet or
+manual SDK download is required. Versions 3.9.4 through 3.9.9 are currently
+pinned; other versions fail before motion is enabled.
 
 **Play** begins at the current timeline cursor. If that cursor is in the middle
 of the sequence, the robot first moves to the pose at that point and playback

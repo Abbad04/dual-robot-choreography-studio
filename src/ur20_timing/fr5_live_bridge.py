@@ -69,9 +69,10 @@ JOINT_MAX_SPEED_RAD_S = tuple(
 JOINT_MAX_ACCELERATION_RAD_S2 = tuple(math.radians(360) for _ in range(6))
 TERMINAL_RUN_STATES = frozenset({"completed", "aborted", "failed"})
 _PROGRAM_NAME = re.compile(r"RAW_[A-Za-z0-9_]{1,80}\.lua\Z", re.ASCII)
-_CONNECTOR_LANDING_HTML = """<!doctype html>
+_CONNECTOR_LANDING_HTML = f"""<!doctype html>
 <html lang="en"><meta charset="utf-8"><title>FR5 Connector</title>
 <meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="fr5-profile-fingerprint" content="{PROFILE_FINGERPRINT}">
 <body style="font:16px system-ui;max-width:42rem;margin:4rem auto;padding:0 1rem;line-height:1.5">
 <h1>FR5 Connector is running</h1>
 <p>Use the pairing code shown in the connector window on the deployed
@@ -1938,11 +1939,30 @@ def build_parser() -> argparse.ArgumentParser:
         "--frontend",
         help="trusted bundled choreography HTML served from the helper origin",
     )
+    parser.add_argument(
+        "--verify-bundled-sdk-version",
+        metavar="VERSION",
+        help=argparse.SUPPRESS,
+    )
     return parser
 
 
 def main(argv: Sequence[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
+    if args.verify_bundled_sdk_version:
+        from .fr5_macos_sdk import load_official_robot_module_for_version
+
+        module = load_official_robot_module_for_version(
+            args.verify_bundled_sdk_version,
+            allow_download=False,
+        )
+        if not callable(getattr(module, "RPC", None)):
+            raise SystemExit("bundled FAIRINO SDK does not expose RPC")
+        print(
+            f"Bundled FAIRINO SDK {args.verify_bundled_sdk_version} verified",
+            flush=True,
+        )
+        return 0
     if args.host not in {"127.0.0.1", "localhost"}:
         raise SystemExit("FR5 helper may bind only to loopback")
     if args.playback_speed_percent > 25 and not args.allow_full_speed:
