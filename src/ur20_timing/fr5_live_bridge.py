@@ -31,6 +31,7 @@ import os
 from pathlib import Path
 import re
 import secrets
+import socket
 import sys
 import threading
 import time
@@ -251,6 +252,7 @@ class FairinoSdkAdapter:
     def __init__(self, robot_factory: Any | None = None) -> None:
         self._robot_factory = robot_factory
         self._robot: Any | None = None
+        self._robot_ip: str | None = None
 
     @property
     def robot(self) -> Any:
@@ -287,6 +289,7 @@ class FairinoSdkAdapter:
         if robot is None:
             raise Fr5BridgeError(f"FAIRINO SDK could not connect to {robot_ip}")
         self._robot = robot
+        self._robot_ip = robot_ip
         try:
             communication = int(
                 _result_value(robot.GetSDKComState(), "GetSDKComState")
@@ -308,6 +311,7 @@ class FairinoSdkAdapter:
 
     def close(self) -> None:
         robot, self._robot = self._robot, None
+        self._robot_ip = None
         if robot is not None:
             try:
                 robot.CloseRPC()
@@ -463,8 +467,74 @@ class FairinoSdkAdapter:
         if successes == 0:
             raise Fr5BridgeError("all available FR5 stop commands failed")
 
+    def _upload_lua_reliably(self, local_path: Path) -> None:
+        """Use FAIRINO's file protocol without the SDK's partial-send bug."""
+
+        robot = self.robot
+        controller = getattr(robot, "robot", None)
+        prepare = getattr(controller, "FileUpload", None)
+        register = getattr(controller, "LuaUpLoadUpdate", None)
+        if not callable(prepare) or not callable(register):
+            # Preserve compatibility with test doubles and older third-party
+            # wrappers that expose only the documented public method.
+            _error_code(robot.LuaUpload(str(local_path)), "LuaUpload")
+            return
+        if self._robot_ip is None:
+            raise Fr5BridgeError("FR5 is not connected")
+
+        try:
+            file_size = local_path.stat().st_size
+        except OSError as exc:
+            raise Fr5BridgeError("generated Lua program could not be read") from exc
+        if file_size <= 0 or file_size > MAX_LUA_BYTES:
+            raise Fr5BridgeError("generated Lua program has an invalid size")
+
+        digest = hashlib.md5(usedforsecurity=False)
+        try:
+            with local_path.open("rb") as source:
+                while chunk := source.read(1024 * 1024):
+                    digest.update(chunk)
+        except OSError as exc:
+            raise Fr5BridgeError("generated Lua program could not be read") from exc
+
+        file_name = local_path.name
+        try:
+            prepared = prepare(0, file_name)
+        except Exception as exc:
+            raise Fr5BridgeError("Lua upload preparation could not reach the FR5") from exc
+        _error_code(prepared, "Lua upload preparation")
+
+        total_size = file_size + 46 + 4
+        header = f"/f/b{total_size:10d}{digest.hexdigest()}".encode("ascii")
+        try:
+            with socket.create_connection((self._robot_ip, 20010), timeout=20.0) as client:
+                client.settimeout(20.0)
+                client.sendall(header)
+                with local_path.open("rb") as source:
+                    while chunk := source.read(1024 * 1024):
+                        client.sendall(chunk)
+                client.sendall(b"/b/f")
+                response = bytearray()
+                while len(response) < 7:
+                    chunk = client.recv(1024)
+                    if not chunk:
+                        break
+                    response.extend(chunk)
+        except (OSError, TimeoutError) as exc:
+            raise Fr5BridgeError(
+                f"Lua file transfer to {self._robot_ip}:20010 failed"
+            ) from exc
+        if not response.startswith(b"SUCCESS"):
+            raise Fr5BridgeError("FR5 rejected the transferred Lua file")
+
+        try:
+            registered = register(file_name)
+        except Exception as exc:
+            raise Fr5BridgeError("Lua upload registration could not reach the FR5") from exc
+        _error_code(registered, "Lua upload registration")
+
     def upload_program(self, local_path: Path, remote_path: str) -> None:
-        _error_code(self.robot.LuaUpload(str(local_path)), "LuaUpload")
+        self._upload_lua_reliably(local_path)
         _error_code(self.robot.ProgramLoad(remote_path), "ProgramLoad")
 
     def set_speed(self, percent: int) -> None:

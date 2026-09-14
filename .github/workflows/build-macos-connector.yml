@@ -111,4 +111,4 @@ jobs:
             FR5-Connector-macOS.zip \
             FR5-Connector-macOS.zip.sha256 \
             --title "FR5 Connector for macOS" \
-            --notes "Corrected standalone connector for Apple Silicon and Intel Macs. Includes integrity-checked FAIRINO SDK sources for WebApp 3.9.4-3.9.9, requires no Python or first-run SDK download, and verifies each SDK inside both packaged binaries before release. Start with reduced-speed commissioning and a reachable physical emergency stop."
+            --notes "Standalone connector for Apple Silicon and Intel Macs with reliable complete-file transfer for large encoded choreographies. Includes integrity-checked FAIRINO SDK sources for WebApp 3.9.4-3.9.9, requires no Python or first-run SDK download, and verifies each SDK inside both packaged binaries before release. Start with reduced-speed commissioning and a reachable physical emergency stop."
