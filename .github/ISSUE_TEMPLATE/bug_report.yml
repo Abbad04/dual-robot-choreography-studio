@@ -1,0 +1,92 @@
+name: Bug report
+description: Report a reproducible editor, export, connector, or robot-integration problem
+title: "[Bug]: "
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for helping improve the studio. Search existing issues and check the troubleshooting guide first. If this could affect physical motion, stop live testing and make the workcell safe before continuing.
+
+  - type: dropdown
+    id: area
+    attributes:
+      label: Affected area
+      options:
+        - Browser editor or 3D preview
+        - Timeline or audio
+        - Project save, open, or import
+        - FR5 Lua export
+        - UR20 URScript or URPX export
+        - macOS FR5 connector
+        - Physical FR5 playback
+        - Documentation or release package
+    validations:
+      required: true
+
+  - type: input
+    id: version
+    attributes:
+      label: Version
+      description: Connector release, commit, or live-app date if known
+      placeholder: "Example: FR5 Connector v1.0.3"
+    validations:
+      required: true
+
+  - type: input
+    id: environment
+    attributes:
+      label: Environment
+      description: Operating system, CPU architecture, and browser version
+      placeholder: "Example: macOS 15, Apple Silicon, Safari 19"
+    validations:
+      required: true
+
+  - type: input
+    id: controller
+    attributes:
+      label: Robot and controller version
+      description: Required only for robot or connector problems; do not include pairing codes
+      placeholder: "Example: FR5-WML model 803, WebApp 3.9.8"
+
+  - type: textarea
+    id: steps
+    attributes:
+      label: Reproduction steps
+      description: Provide the smallest sequence that consistently shows the problem
+      placeholder: |
+        1. Open ...
+        2. Add ...
+        3. Choose ...
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+    validations:
+      required: true
+
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual behavior
+      description: Include the exact visible error and only the final relevant Terminal or console lines
+    validations:
+      required: true
+
+  - type: textarea
+    id: files
+    attributes:
+      label: Screenshots or minimal files
+      description: Remove active pairing codes, personal data, confidential choreography, and unrelated logs before attaching anything
+
+  - type: checkboxes
+    id: safety
+    attributes:
+      label: Safety confirmation
+      options:
+        - label: If physical motion was involved, I stopped testing and made the robot and workcell safe before filing this report.
+          required: true
+        - label: I removed active pairing codes and sensitive information from this report.
+          required: true

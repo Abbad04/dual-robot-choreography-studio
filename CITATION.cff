@@ -1,0 +1,21 @@
+cff-version: 1.2.0
+message: "If you use this software in academic work, please cite it using this metadata."
+title: "Dual Robot Choreography Studio"
+type: software
+authors:
+  - given-names: Megan
+    family-names: Del Villar
+  - given-names: Abbad
+    family-names: Shazly
+repository-code: "https://github.com/Abbad04/dual-robot-choreography-studio"
+url: "https://abbad04.github.io/dual-robot-choreography-studio/"
+abstract: >-
+  A browser-based choreography studio for FAIRINO FR5-WML and Universal
+  Robots UR20 profiles, with 3D authoring, synchronized timelines, robot
+  program export, and optional local FR5 playback.
+keywords:
+  - robotics
+  - robot choreography
+  - FAIRINO FR5
+  - Universal Robots UR20
+  - trajectory planning

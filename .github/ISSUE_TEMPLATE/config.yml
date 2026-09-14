@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Troubleshooting guide
+    url: https://github.com/Abbad04/dual-robot-choreography-studio/blob/main/docs/TROUBLESHOOTING.md
+    about: Check known connector, network, Gatekeeper, and upload errors before filing.
+  - name: Private security report
+    url: https://github.com/Abbad04/dual-robot-choreography-studio/security/advisories/new
+    about: Report pairing, authorization, motion-safety, or integrity vulnerabilities privately.

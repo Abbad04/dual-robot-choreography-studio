@@ -1,7 +1,9 @@
 # Third-party notices
 
-The generated `index.html` embeds the components below so the choreography
-editor and its UR20 and FR5-WML previews can run without a network connection.
+The repository and its release artifacts use the components and materials
+listed below. The generated `index.html` embeds the browser libraries and
+visual assets so the editor can run without a network connection. The macOS
+connector release separately bundles the FAIRINO SDK source described below.
 
 ## Three.js 0.158.0
 
@@ -10,13 +12,17 @@ editor and its UR20 and FR5-WML previews can run without a network connection.
 - License: MIT
 
 The build includes the Three.js core module, `OrbitControls`, and
-`ColladaLoader`.
+`ColladaLoader`. The required MIT notice is reproduced in
+[`THIRD_PARTY_LICENSES.md`](https://github.com/Abbad04/dual-robot-choreography-studio/blob/main/THIRD_PARTY_LICENSES.md).
 
 ## WaveSurfer.js 7.12.11
 
 - Project: <https://wavesurfer.xyz/>
 - Source: <https://www.npmjs.com/package/wavesurfer.js/v/7.12.11>
 - License: BSD-3-Clause
+
+The required BSD 3-Clause notice is reproduced in
+[`THIRD_PARTY_LICENSES.md`](https://github.com/Abbad04/dual-robot-choreography-studio/blob/main/THIRD_PARTY_LICENSES.md).
 
 ## Official Universal Robots UR20 visual assets
 
@@ -26,7 +32,8 @@ The build includes the Three.js core module, `OrbitControls`, and
 - Included files: seven Collada link meshes and `UR20_DIFF_8bit_2K.png`
 
 Use of the UR20 graphical assets is subject to the Universal Robots terms
-included verbatim at [`assets/ur20/LICENSE.txt`](assets/ur20/LICENSE.txt).
+included verbatim at
+[`assets/ur20/LICENSE.txt`](https://github.com/Abbad04/dual-robot-choreography-studio/blob/main/assets/ur20/LICENSE.txt).
 The build embeds the same files byte-for-byte and records their SHA-256 hashes
 in `globalThis.__UR20_BUILD_METADATA__`.
 

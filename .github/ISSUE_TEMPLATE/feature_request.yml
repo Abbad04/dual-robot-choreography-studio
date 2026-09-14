@@ -1,0 +1,59 @@
+name: Feature request
+description: Propose an improvement to the editor, export, connector, or documentation
+title: "[Feature]: "
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Describe the problem first, then the smallest useful change. Open a private security report instead if the request reveals a vulnerability.
+
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      options:
+        - Browser editor or 3D preview
+        - Timeline or audio
+        - Project formats or import
+        - FR5 export or connector
+        - UR20 export
+        - Documentation or onboarding
+        - Release engineering
+        - Other
+    validations:
+      required: true
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem to solve
+      description: What is difficult or impossible today, and for whom?
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed outcome
+      description: Describe the desired behavior rather than only its implementation
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+
+  - type: textarea
+    id: safety
+    attributes:
+      label: Motion and safety impact
+      description: Explain whether this could change robot motion, timing, limits, validation, stopping, or operator confirmation
+    validations:
+      required: true
+
+  - type: textarea
+    id: context
+    attributes:
+      label: Additional context
+      description: Mockups and examples are welcome; remove confidential or third-party material first
