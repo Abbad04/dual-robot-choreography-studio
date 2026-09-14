@@ -3,10 +3,10 @@ message: "If you use this software in academic work, please cite it using this m
 title: "Dual Robot Choreography Studio"
 type: software
 authors:
-  - given-names: Megan
-    family-names: Del Villar
   - given-names: Abbad
     family-names: Shazly
+  - given-names: Megan
+    family-names: Del Villar
 repository-code: "https://github.com/Abbad04/dual-robot-choreography-studio"
 url: "https://abbad04.github.io/dual-robot-choreography-studio/"
 abstract: >-

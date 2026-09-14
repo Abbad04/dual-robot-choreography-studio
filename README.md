@@ -120,7 +120,7 @@ Start with [CONTRIBUTING.md](CONTRIBUTING.md) before proposing a change. The
 
 ## Authors
 
-Megan Del Villar and Abbad Shazly
+Abbad Shazly and Megan Del Villar
 
 ## License and third-party material
 
