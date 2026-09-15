@@ -33173,6 +33173,12 @@ move_frame("base", basePose, existingBaseParent)`;
       } catch (e2) {
       }
     }
+    let lastPlaybackRate = 1;
+    function setPlaybackRate(rate) {
+      const clamped = Number.isFinite(rate) ? rate : 1;
+      if (ws && clamped !== lastPlaybackRate) ws.setPlaybackRate(clamped);
+      lastPlaybackRate = clamped;
+    }
     return {
       initAudio,
       loadFile,
@@ -33190,7 +33196,8 @@ move_frame("base", basePose, existingBaseParent)`;
       getDuration,
       hasAudio,
       setOnNaturalEnd,
-      syncVisualScroll
+      syncVisualScroll,
+      setPlaybackRate
     };
   })();
   var LiveSync = (function() {
@@ -36939,6 +36946,10 @@ move_frame("base", basePose, existingBaseParent)`;
   refreshHistoryButtons();
   setRobotPose(getState().initialPose);
   var workspaceReadyPromise = initializeManualProjectSession();
+  const LIVE_SYNC_DEADBAND_S = 0.02;
+  const LIVE_SYNC_HARD_RESYNC_S = 0.3;
+  const LIVE_SYNC_RATE_GAIN = 0.15;
+  const LIVE_SYNC_MAX_RATE_NUDGE = 0.05;
   function loop(now) {
     requestAnimationFrame(loop);
     jogStep();
@@ -36959,10 +36970,20 @@ move_frame("base", basePose, existingBaseParent)`;
       }
     }
     if (!liveLocked && timeline.isDragging()) timeline.stepDrag();
+    let liveAudioRate = 1;
     if (liveRunning) {
       pendingPlaybackEndTime = null;
       previewT = liveT;
-      if (audioIsPlaying && Math.abs(sampledAudioT - liveT) > 0.05) audio.seekTo(liveT);
+      if (audioIsPlaying) {
+        const drift = sampledAudioT - liveT;
+        const absDrift = Math.abs(drift);
+        if (absDrift > LIVE_SYNC_HARD_RESYNC_S) {
+          audio.seekTo(liveT);
+        } else if (absDrift > LIVE_SYNC_DEADBAND_S) {
+          const nudge = Math.max(-LIVE_SYNC_MAX_RATE_NUDGE, Math.min(LIVE_SYNC_MAX_RATE_NUDGE, drift * LIVE_SYNC_RATE_GAIN));
+          liveAudioRate = 1 - nudge;
+        }
+      }
     } else if (previewT == null && Number.isFinite(pendingPlaybackEndTime)) {
       playbackT = pendingPlaybackEndTime;
       previewT = pendingPlaybackEndTime;
@@ -36970,6 +36991,7 @@ move_frame("base", basePose, existingBaseParent)`;
     } else if (previewT == null && (audioWasPlaying || audioIsPlaying)) {
       previewT = playbackT;
     }
+    audio.setPlaybackRate(liveAudioRate);
     if (previewT != null) setRobotPose(poseAtTime(getState().waypoints, previewT, getState().initialPose));
     timeline.updatePlayhead(playbackT, liveRunning || audioIsPlaying, Math.max(audio.getDuration(), getTotalDuration(getState().waypoints)));
     audio.syncVisualScroll(timeline.getScroll(), timeline.getZoom());
