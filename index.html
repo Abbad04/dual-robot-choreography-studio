@@ -710,6 +710,7 @@ body.editor-locked #tl-open-btn{opacity:.48}
       <div class="export-menu">
         <button class="toolbar-btn toolbar-btn-primary" id="export-urpx-btn" type="button">Export URPX</button>
         <button class="toolbar-btn" id="export-script-btn" type="button">Script</button>
+        <button class="toolbar-btn" id="export-timing-btn" type="button" title="Download a spreadsheet of each pose's absolute time from the start">Timing CSV</button>
       </div>
     </nav>
   </header>
@@ -36340,6 +36341,34 @@ move_frame("base", basePose, existingBaseParent)`;
     a2.download = (state.project.name || "UR20_Program") + ".urpx";
     a2.click();
     showToast("URPX exported", "success");
+  });
+  document.getElementById("export-timing-btn").addEventListener("click", () => {
+    if (!getState().waypoints.some((w2) => w2.type === "moveJ")) {
+      showToast("Record or import at least one moveJ first", "warn");
+      return;
+    }
+    if (revalidateDurations()) {
+      showToast("Timing changed after revalidation. Review the timeline, then export again.", "warn");
+      return;
+    }
+    const state = getState();
+    const csvField = (value) => `"${String(value).replace(/"/g, '""')}"`;
+    const header = ["#", "Pose", "Start (m:ss)", "Start (s)", "Arrives (m:ss)", "Arrives (s)", "Duration (s)"];
+    const rows = withTimestamps(state.waypoints).filter((wp) => wp.type === "moveJ").map((wp, index) => [
+      index + 1,
+      wp.name || `Waypoint ${index + 1}`,
+      timeline.fmtTime(wp.start),
+      wp.start.toFixed(3),
+      timeline.fmtTime(wp.end),
+      wp.end.toFixed(3),
+      wp.duration.toFixed(3)
+    ]);
+    const csv = [header, ...rows].map((row) => row.map(csvField).join(",")).join("\r\n") + "\r\n";
+    const link = document.createElement("a");
+    link.href = URL.createObjectURL(new Blob([csv], { type: "text/csv" }));
+    link.download = (state.project.name || "Choreography") + "_timing.csv";
+    link.click();
+    showToast("Timing table exported", "success");
   });
   if (false) {
     let buildValidationPlan = function() {
