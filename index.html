@@ -36949,11 +36949,18 @@ move_frame("base", basePose, existingBaseParent)`;
   const LIVE_SYNC_DEADBAND_S = 0.02;
   const LIVE_SYNC_HARD_RESYNC_S = 0.3;
   const LIVE_SYNC_RATE_GAIN = 0.15;
-  const LIVE_SYNC_MAX_RATE_NUDGE = 0.05;
+  const LIVE_SYNC_BIAS_GAIN = 0.05;
+  const LIVE_SYNC_MAX_RATE_NUDGE = 0.08;
+  const LIVE_SYNC_MAX_BIAS = 0.06;
+  let liveSyncBiasRate = 0;
+  let lastLoopMs = null;
   function loop(now) {
     requestAnimationFrame(loop);
+    const dt = lastLoopMs != null ? Math.min(0.25, Math.max(0, (now - lastLoopMs) / 1e3)) : 0;
+    lastLoopMs = now;
     jogStep();
     const liveRunning = RobotLive.isRunning();
+    if (!liveRunning) liveSyncBiasRate = 0;
     const liveLocked = RobotLive.isActive();
     const audioWasPlaying = audio.getIsPlaying();
     const sampledAudioT = audio.getCurrentTime();
@@ -36979,8 +36986,16 @@ move_frame("base", basePose, existingBaseParent)`;
         const absDrift = Math.abs(drift);
         if (absDrift > LIVE_SYNC_HARD_RESYNC_S) {
           audio.seekTo(liveT);
-        } else if (absDrift > LIVE_SYNC_DEADBAND_S) {
-          const nudge = Math.max(-LIVE_SYNC_MAX_RATE_NUDGE, Math.min(LIVE_SYNC_MAX_RATE_NUDGE, drift * LIVE_SYNC_RATE_GAIN));
+        } else {
+          liveSyncBiasRate = Math.max(
+            -LIVE_SYNC_MAX_BIAS,
+            Math.min(LIVE_SYNC_MAX_BIAS, liveSyncBiasRate + drift * LIVE_SYNC_BIAS_GAIN * dt)
+          );
+          const proportional = absDrift > LIVE_SYNC_DEADBAND_S ? drift * LIVE_SYNC_RATE_GAIN : 0;
+          const nudge = Math.max(
+            -LIVE_SYNC_MAX_RATE_NUDGE,
+            Math.min(LIVE_SYNC_MAX_RATE_NUDGE, proportional + liveSyncBiasRate)
+          );
           liveAudioRate = 1 - nudge;
         }
       }
