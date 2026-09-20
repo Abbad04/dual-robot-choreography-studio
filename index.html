@@ -32959,6 +32959,7 @@ move_frame("base", basePose, existingBaseParent)`;
     let lastAudioFileName = null;
     let lastAudioPortableSave = null;
     let lastAudioPortableSavePromise = Promise.resolve(null);
+    let lastPlaybackRate = 1;
     function encodeAudioForPortableSave(blob, fileName) {
       if (!blob) return Promise.resolve(null);
       return new Promise((resolve, reject) => {
@@ -33044,6 +33045,7 @@ move_frame("base", basePose, existingBaseParent)`;
     function removeAudio() {
       if (ws) ws.destroy();
       ws = createInstance();
+      lastPlaybackRate = 1;
       virtualTime = 0;
       virtualPlaying = false;
       virtualEndTime = Infinity;
@@ -33105,6 +33107,7 @@ move_frame("base", basePose, existingBaseParent)`;
       const mediaWasPlaying = Boolean(ws && hasAudio() && ws.isPlaying());
       const sampledTime = getCurrentTime();
       if (ws) ws.pause();
+      setPlaybackRate(1);
       virtualTime = mediaWasPlaying && ws ? ws.getCurrentTime() : sampledTime;
       virtualPlaying = false;
     }
@@ -33113,6 +33116,7 @@ move_frame("base", basePose, existingBaseParent)`;
         ws.pause();
         ws.setTime(0);
       }
+      setPlaybackRate(1);
       virtualTime = 0;
       virtualPlaying = false;
       virtualEndTime = Infinity;
@@ -33172,6 +33176,11 @@ move_frame("base", basePose, existingBaseParent)`;
       } catch (e2) {
       }
     }
+    function setPlaybackRate(rate) {
+      const next = Number.isFinite(rate) ? rate : 1;
+      if (ws && Math.abs(next - lastPlaybackRate) > 1e-6) ws.setPlaybackRate(next);
+      lastPlaybackRate = next;
+    }
     return {
       initAudio,
       loadFile,
@@ -33189,7 +33198,8 @@ move_frame("base", basePose, existingBaseParent)`;
       getDuration,
       hasAudio,
       setOnNaturalEnd,
-      syncVisualScroll
+      syncVisualScroll,
+      setPlaybackRate
     };
   })();
   var LiveSync = (function() {
@@ -33344,9 +33354,12 @@ move_frame("base", basePose, existingBaseParent)`;
     const localBridgeOrigin = globalThis.location?.hostname === "127.0.0.1" && globalThis.location?.port === "8766";
     const BASE = localBridgeOrigin ? "/v1" : "http://127.0.0.1:8766/v1";
     const BRIDGE_CODE_KEY = "fr5-bridge-pairing-code";
+    const POLL_INTERVAL_MS = 100;
+    const STARTUP_POLL_INTERVAL_MS = 20;
     const listeners = /* @__PURE__ */ new Set();
     let state = { phase: "checking", snapshot: null, error: null, receivedAtMs: performance.now() };
     let pollHandle = null;
+    let pollIntervalMs = 0;
     let startPromise = null;
     let poseSessionId = null;
     let pendingPose = null;
@@ -33420,6 +33433,9 @@ move_frame("base", basePose, existingBaseParent)`;
         stopPoseHeartbeat();
       }
       setState({ phase, snapshot, error: snapshot?.error || null });
+      if (phase === "running" && pollIntervalMs === STARTUP_POLL_INTERVAL_MS) {
+        beginPolling(POLL_INTERVAL_MS);
+      }
       if (["completed", "aborted", "failed", "disconnected"].includes(phase)) {
         if (phase !== "connected") poseSessionId = null;
         if (phase === "disconnected") stopPolling();
@@ -33431,6 +33447,7 @@ move_frame("base", basePose, existingBaseParent)`;
         clearInterval(pollHandle);
         pollHandle = null;
       }
+      pollIntervalMs = 0;
     }
     function stopPoseHeartbeat() {
       if (poseHeartbeat) {
@@ -33446,9 +33463,12 @@ move_frame("base", basePose, existingBaseParent)`;
         void flushPose();
       }, 100);
     }
-    function beginPolling() {
+    function beginPolling(intervalMs = POLL_INTERVAL_MS) {
+      const nextInterval = intervalMs === STARTUP_POLL_INTERVAL_MS ? STARTUP_POLL_INTERVAL_MS : POLL_INTERVAL_MS;
+      if (pollHandle && pollIntervalMs === nextInterval) return;
       stopPolling();
-      pollHandle = setInterval(poll, 100);
+      pollIntervalMs = nextInterval;
+      pollHandle = setInterval(poll, nextInterval);
     }
     async function poll() {
       try {
@@ -33608,7 +33628,7 @@ move_frame("base", basePose, existingBaseParent)`;
         try {
           const snapshot = await request("/play", { method: "POST", body: JSON.stringify(payload) });
           applySnapshot(snapshot);
-          beginPolling();
+          beginPolling(state.phase === "running" ? POLL_INTERVAL_MS : STARTUP_POLL_INTERVAL_MS);
           if (state.phase === "running") return snapshot;
           if (!["positioning", "paused", "starting"].includes(state.phase)) {
             throw new Error(snapshot.error || "FR5 did not start the program");
@@ -35902,11 +35922,13 @@ move_frame("base", basePose, existingBaseParent)`;
     FR5Live.onChange(renderFR5LiveStatus);
     FR5Live.check();
   }
+  var liveAudioStartPending = false;
   async function requestPlayback() {
     const end = Math.max(audio.getDuration(), getTotalDuration(getState().waypoints));
     if (RobotMode.isFR5 && FR5Live.isPaused()) {
       try {
         const snapshot = await FR5Live.resume();
+        liveAudioStartPending = true;
         audio.play(FR5Live.elapsedSeconds(), end);
         syncPlayButtons(true);
         showToast(`FR5 resumed at ${FR5Live.elapsedSeconds().toFixed(3)} s`, "success");
@@ -35974,6 +35996,7 @@ move_frame("base", basePose, existingBaseParent)`;
       }
       const snapshot = await RobotLive.start(payload);
       const elapsed = RobotMode.isFR5 ? FR5Live.elapsedSeconds() : Math.max(0, Number(snapshot.elapsed_seconds) || 0);
+      liveAudioStartPending = RobotMode.isFR5;
       audio.play(elapsed, end);
       syncPlayButtons(true);
       showToast(
@@ -36910,10 +36933,25 @@ move_frame("base", basePose, existingBaseParent)`;
   refreshHistoryButtons();
   setRobotPose(getState().initialPose);
   var workspaceReadyPromise = initializeManualProjectSession();
+  var LIVE_SYNC_DEADBAND_S = 0.02;
+  var LIVE_SYNC_HARD_RESYNC_S = 0.3;
+  var LIVE_SYNC_START_ALIGN_S = PROFILE.controllerPeriod;
+  var LIVE_SYNC_RATE_GAIN = 0.15;
+  var LIVE_SYNC_BIAS_GAIN = 0.05;
+  var LIVE_SYNC_MAX_RATE_NUDGE = 0.08;
+  var LIVE_SYNC_MAX_BIAS = 0.06;
+  var liveSyncBiasRate = 0;
+  var lastLoopMs = null;
   function loop(now) {
     requestAnimationFrame(loop);
+    const dt = lastLoopMs != null ? Math.min(0.25, Math.max(0, (now - lastLoopMs) / 1e3)) : 0;
+    lastLoopMs = now;
     jogStep();
     const liveRunning = RobotLive.isRunning();
+    if (!liveRunning) {
+      liveSyncBiasRate = 0;
+      liveAudioStartPending = false;
+    }
     const liveLocked = RobotLive.isActive();
     const audioWasPlaying = audio.getIsPlaying();
     const sampledAudioT = audio.getCurrentTime();
@@ -36930,10 +36968,33 @@ move_frame("base", basePose, existingBaseParent)`;
       }
     }
     if (!liveLocked && timeline.isDragging()) timeline.stepDrag();
+    let liveAudioRate = 1;
     if (liveRunning) {
       pendingPlaybackEndTime = null;
       previewT = liveT;
-      if (audioIsPlaying && Math.abs(sampledAudioT - liveT) > 0.05) audio.seekTo(liveT);
+      if (audioIsPlaying) {
+        const drift = sampledAudioT - liveT;
+        const absDrift = Math.abs(drift);
+        if (liveAudioStartPending) {
+          if (absDrift > LIVE_SYNC_START_ALIGN_S) audio.seekTo(liveT);
+          liveAudioStartPending = false;
+          liveSyncBiasRate = 0;
+        } else if (absDrift > LIVE_SYNC_HARD_RESYNC_S) {
+          audio.seekTo(liveT);
+          liveSyncBiasRate = 0;
+        } else {
+          liveSyncBiasRate = Math.max(
+            -LIVE_SYNC_MAX_BIAS,
+            Math.min(LIVE_SYNC_MAX_BIAS, liveSyncBiasRate + drift * LIVE_SYNC_BIAS_GAIN * dt)
+          );
+          const proportional = absDrift > LIVE_SYNC_DEADBAND_S ? drift * LIVE_SYNC_RATE_GAIN : 0;
+          const nudge = Math.max(
+            -LIVE_SYNC_MAX_RATE_NUDGE,
+            Math.min(LIVE_SYNC_MAX_RATE_NUDGE, proportional + liveSyncBiasRate)
+          );
+          liveAudioRate = 1 - nudge;
+        }
+      }
     } else if (previewT == null && Number.isFinite(pendingPlaybackEndTime)) {
       playbackT = pendingPlaybackEndTime;
       previewT = pendingPlaybackEndTime;
@@ -36941,6 +37002,7 @@ move_frame("base", basePose, existingBaseParent)`;
     } else if (previewT == null && (audioWasPlaying || audioIsPlaying)) {
       previewT = playbackT;
     }
+    audio.setPlaybackRate(liveAudioRate);
     if (previewT != null) setRobotPose(poseAtTime(getState().waypoints, previewT, getState().initialPose));
     timeline.updatePlayhead(playbackT, liveRunning || audioIsPlaying, Math.max(audio.getDuration(), getTotalDuration(getState().waypoints)));
     audio.syncVisualScroll(timeline.getScroll(), timeline.getZoom());
