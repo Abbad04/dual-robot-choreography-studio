@@ -245,6 +245,8 @@ class RobotAdapter(Protocol):
 
     def program_state(self) -> int: ...
 
+    def current_program_line(self) -> int: ...
+
 
 class FairinoSdkAdapter:
     """Narrow wrapper around the official ``fairino.Robot`` API."""
@@ -586,6 +588,23 @@ class FairinoSdkAdapter:
 
     def program_state(self) -> int:
         return int(_result_value(self.robot.GetProgramState(), "GetProgramState"))
+
+    def current_program_line(self) -> int:
+        method = getattr(self.robot, "GetCurrentLine", None)
+        if method is None:
+            raise Fr5BridgeError(
+                "the installed FAIRINO SDK cannot confirm synchronized playback start"
+            )
+        value = _result_value(method(), "GetCurrentLine")
+        if isinstance(value, bool):
+            raise Fr5BridgeError("FR5 returned an invalid current program line")
+        try:
+            line = int(value)
+        except (TypeError, ValueError, OverflowError) as exc:
+            raise Fr5BridgeError("FR5 returned an invalid current program line") from exc
+        if line < 0:
+            raise Fr5BridgeError("FR5 returned an invalid current program line")
+        return line
 
 
 class Fr5LiveBridge:
@@ -1213,6 +1232,23 @@ class Fr5LiveBridge:
             expected_frames=steps,
             initial_q=initial_q,
         )
+        lua_source = self._physical_program_source(
+            encoded_trajectory=encoded_trajectory,
+            trajectory_sha256=trajectory_sha256,
+            frame_count=steps,
+            initial_q=initial_q,
+            project_name=project_name,
+        )
+        try:
+            clock_sync_line = next(
+                line_number
+                for line_number, line in enumerate(lua_source.splitlines(), start=1)
+                if line.strip() == "local command_time = read_u32() / 1000000"
+            )
+        except StopIteration as exc:
+            raise Fr5BridgeError(
+                "generated physical choreography has no synchronized start marker"
+            ) from exc
         return {
             "request_id": request_id,
             "initial_q": initial_q,
@@ -1223,13 +1259,8 @@ class Fr5LiveBridge:
             "filename": filename,
             "project_name": project_name,
             "trajectory_sha256": trajectory_sha256,
-            "lua_source": self._physical_program_source(
-                encoded_trajectory=encoded_trajectory,
-                trajectory_sha256=trajectory_sha256,
-                frame_count=steps,
-                initial_q=initial_q,
-                project_name=project_name,
-            ),
+            "lua_source": lua_source,
+            "clock_sync_line": clock_sync_line,
         }
 
     def start_playback(self, payload: Mapping[str, object]) -> dict[str, object]:
@@ -1269,6 +1300,7 @@ class Fr5LiveBridge:
             "elapsed_seconds": 0.0,
             "complete": False,
             "program_state_edge_complete": False,
+            "clock_sync_confirmed": False,
             "positioned_to_start": error > START_TOLERANCE_RAD,
             "error": None,
         }
@@ -1407,7 +1439,18 @@ class Fr5LiveBridge:
             while self._clock() < start_deadline and not self._run_stop.is_set():
                 with self._robot_lock:
                     program_state = self.adapter.program_state()
-                if program_state == 2:
+                    current_line = (
+                        self.adapter.current_program_line()
+                        if program_state == 2
+                        else 0
+                    )
+                # FAIRINO reports ProgramRun before the Lua preamble has reached
+                # the first trajectory frame. GetCurrentLine is the controller
+                # acknowledgement that frame dispatch is actually beginning.
+                # Accept one line before the 1-based marker for SDK releases
+                # that expose the controller's line counter as zero-based.
+                clock_sync_line = int(values["clock_sync_line"])
+                if program_state == 2 and current_line >= clock_sync_line - 1:
                     now = self._clock()
                     with self._lock:
                         if self._run is not None and self._run.get("run_id") == run_id:
@@ -1419,6 +1462,9 @@ class Fr5LiveBridge:
                                     "started_at": _utc_now(),
                                     "source_sha256": source_sha256,
                                     "remote_program_path": remote_path,
+                                    "clock_sync_confirmed": True,
+                                    "clock_sync_line": clock_sync_line,
+                                    "controller_program_line": current_line,
                                 }
                             )
                     self._run_started_or_terminal.set()
