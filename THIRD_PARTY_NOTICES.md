@@ -1,9 +1,7 @@
 # Third-party notices
 
-The repository and its release artifacts use the components and materials
-listed below. The generated `index.html` embeds the browser libraries and
-visual assets so the editor can run without a network connection. The macOS
-connector release separately bundles the FAIRINO SDK source described below.
+The generated `index.html` embeds the components below so the choreography
+editor and its UR20 and FR5-WML previews can run without a network connection.
 
 ## Three.js 0.158.0
 
@@ -12,17 +10,13 @@ connector release separately bundles the FAIRINO SDK source described below.
 - License: MIT
 
 The build includes the Three.js core module, `OrbitControls`, and
-`ColladaLoader`. The required MIT notice is reproduced in
-[`THIRD_PARTY_LICENSES.md`](https://github.com/Abbad04/dual-robot-choreography-studio/blob/main/THIRD_PARTY_LICENSES.md).
+`ColladaLoader`.
 
 ## WaveSurfer.js 7.12.11
 
 - Project: <https://wavesurfer.xyz/>
 - Source: <https://www.npmjs.com/package/wavesurfer.js/v/7.12.11>
 - License: BSD-3-Clause
-
-The required BSD 3-Clause notice is reproduced in
-[`THIRD_PARTY_LICENSES.md`](https://github.com/Abbad04/dual-robot-choreography-studio/blob/main/THIRD_PARTY_LICENSES.md).
 
 ## Official Universal Robots UR20 visual assets
 
@@ -32,8 +26,7 @@ The required BSD 3-Clause notice is reproduced in
 - Included files: seven Collada link meshes and `UR20_DIFF_8bit_2K.png`
 
 Use of the UR20 graphical assets is subject to the Universal Robots terms
-included verbatim at
-[`assets/ur20/LICENSE.txt`](https://github.com/Abbad04/dual-robot-choreography-studio/blob/main/assets/ur20/LICENSE.txt).
+included verbatim at [`assets/ur20/LICENSE.txt`](assets/ur20/LICENSE.txt).
 The build embeds the same files byte-for-byte and records their SHA-256 hashes
 in `globalThis.__UR20_BUILD_METADATA__`.
 
@@ -62,11 +55,10 @@ standalone build records their individual SHA-256 hashes in
 
 - Project: <https://github.com/FAIR-INNOVATION/fairino-python-sdk>
 - License: Apache License 2.0
-- Use: the macOS connector contains only the unmodified `linux/fairino/Robot.py`
-  sources for supported WebApp versions, each from an immutable FAIRINO commit.
+- Use: the macOS connector downloads only the `linux/fairino/Robot.py` source
+  matching the robot's reported WebApp version from an immutable FAIRINO commit.
 
-The connector selects the source matching the robot-reported version and
-verifies its pinned byte count and SHA-256 digest immediately before execution.
-The upstream SDK source and license remain copyright their respective owners.
-The connector package includes the upstream Apache License 2.0 text as
-`FAIRINO-SDK-LICENSE.txt`; no modified FAIRINO SDK source is distributed.
+The connector verifies the pinned byte count and SHA-256 digest before caching
+or importing the source. The upstream SDK source and license remain copyright
+their respective owners. No modified FAIRINO SDK source is included in this
+repository or connector package.

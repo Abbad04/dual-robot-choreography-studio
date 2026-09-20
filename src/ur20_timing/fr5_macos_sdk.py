@@ -15,12 +15,12 @@ from __future__ import annotations
 from dataclasses import dataclass
 import hashlib
 import http.client
+import importlib
 import os
 from pathlib import Path
 import re
 import sys
 import tempfile
-import types
 from typing import Callable
 from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
@@ -142,18 +142,6 @@ def _cache_root() -> Path:
     return Path.home() / ".cache" / "fr5-choreography-connector"
 
 
-def _bundled_sdk_root() -> Path | None:
-    """Return the verified SDK payload bundled by the standalone build."""
-
-    override = os.environ.get("FR5_CONNECTOR_BUNDLED_SDK_ROOT")
-    if override:
-        return Path(override).expanduser().resolve()
-    frozen_root = getattr(sys, "_MEIPASS", None)
-    if frozen_root:
-        return Path(frozen_root) / "fairino_sdk"
-    return None
-
-
 def _verified(payload: bytes, source: SdkSource) -> bool:
     return len(payload) == source.size and hashlib.sha256(payload).hexdigest() == source.sha256
 
@@ -187,8 +175,6 @@ def prepare_official_sdk_source(
     webapp_version: str,
     *,
     cache_root: Path | None = None,
-    bundle_root: Path | None = None,
-    allow_download: bool = True,
     opener: Callable[..., object] = urlopen,
 ) -> Path:
     """Return a verified directory that can import ``fairino.Robot``."""
@@ -208,29 +194,10 @@ def prepare_official_sdk_source(
         cached = robot_source.read_bytes()
     except FileNotFoundError:
         cached = b""
-    except OSError:
-        cached = b""
+    except OSError as exc:
+        raise MacFairinoSdkError("the Mac SDK cache could not be read") from exc
     if _verified(cached, source):
         return root
-
-    bundled_base = bundle_root if bundle_root is not None else _bundled_sdk_root()
-    bundled_root = (
-        bundled_base / webapp_version / source.commit
-        if bundled_base is not None
-        else None
-    )
-    if bundled_root is not None:
-        try:
-            bundled = (bundled_root / "fairino" / "Robot.py").read_bytes()
-        except (FileNotFoundError, OSError):
-            bundled = b""
-        if _verified(bundled, source):
-            return bundled_root
-
-    if not allow_download:
-        raise MacFairinoSdkError(
-            f"the bundled FAIRINO SDK for WebApp {webapp_version} is unavailable or failed integrity verification"
-        )
 
     payload = _download_source(source, opener=opener)
     try:
@@ -250,65 +217,21 @@ def prepare_official_sdk_source(
     return root
 
 
-def load_official_robot_module_for_version(
-    version: str,
-    *,
-    cache_root: Path | None = None,
-    bundle_root: Path | None = None,
-    allow_download: bool = True,
-):
-    """Load one exact, integrity-checked official FAIRINO Robot.py source."""
-
-    source = SDK_SOURCES.get(version)
-    if source is None:
-        supported = f"{min(SDK_SOURCES)} through {max(SDK_SOURCES)}"
-        raise MacFairinoSdkError(
-            f"FR5 WebApp {version} is not supported by this Mac connector; "
-            f"supported versions are {supported}"
-        )
-    root = prepare_official_sdk_source(
-        version,
-        cache_root=cache_root,
-        bundle_root=bundle_root,
-        allow_download=allow_download,
-    )
-    robot_source = root / "fairino" / "Robot.py"
-    try:
-        payload = robot_source.read_bytes()
-        if not _verified(payload, source):
-            raise MacFairinoSdkError(
-                f"the official FAIRINO SDK for WebApp {version} failed integrity verification"
-            )
-        module_name = f"_fr5_official_robot_{version.replace('.', '_')}_{source.commit[:12]}"
-        existing = sys.modules.get(module_name)
-        if existing is not None:
-            return existing
-        module = types.ModuleType(module_name)
-        module.__file__ = str(robot_source)
-        module.__package__ = ""
-        sys.modules[module_name] = module
-        try:
-            exec(compile(payload, str(robot_source), "exec"), module.__dict__)
-        except Exception:
-            sys.modules.pop(module_name, None)
-            raise
-        if not callable(getattr(module, "RPC", None)):
-            sys.modules.pop(module_name, None)
-            raise AttributeError("Robot.py does not expose RPC")
-        return module
-    except MacFairinoSdkError:
-        raise
-    except Exception as exc:
-        raise MacFairinoSdkError(
-            f"the official FAIRINO SDK for WebApp {version} could not start on this Mac "
-            f"({type(exc).__name__}: {exc})"
-        ) from exc
-
-
 def load_official_robot_module(robot_ip: str):
     """Load the official FAIRINO Robot module matching the connected controller."""
 
-    return load_official_robot_module_for_version(controller_webapp_version(robot_ip))
+    version = controller_webapp_version(robot_ip)
+    root = prepare_official_sdk_source(version)
+    root_text = str(root)
+    if root_text not in sys.path:
+        sys.path.insert(0, root_text)
+    importlib.invalidate_caches()
+    try:
+        return importlib.import_module("fairino.Robot")
+    except (ImportError, OSError) as exc:
+        raise MacFairinoSdkError(
+            f"the official FAIRINO SDK for WebApp {version} could not start on this Mac"
+        ) from exc
 
 
 __all__ = [
@@ -316,6 +239,5 @@ __all__ = [
     "SDK_SOURCES",
     "controller_webapp_version",
     "load_official_robot_module",
-    "load_official_robot_module_for_version",
     "prepare_official_sdk_source",
 ]

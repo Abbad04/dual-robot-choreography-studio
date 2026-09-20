@@ -710,7 +710,6 @@ body.editor-locked #tl-open-btn{opacity:.48}
       <div class="export-menu">
         <button class="toolbar-btn toolbar-btn-primary" id="export-urpx-btn" type="button">Export URPX</button>
         <button class="toolbar-btn" id="export-script-btn" type="button">Script</button>
-        <button class="toolbar-btn" id="export-timing-btn" type="button" title="Download a spreadsheet of each pose's absolute time from the start">Timing CSV</button>
       </div>
     </nav>
   </header>
@@ -33173,12 +33172,6 @@ move_frame("base", basePose, existingBaseParent)`;
       } catch (e2) {
       }
     }
-    let lastPlaybackRate = 1;
-    function setPlaybackRate(rate) {
-      const clamped = Number.isFinite(rate) ? rate : 1;
-      if (ws && clamped !== lastPlaybackRate) ws.setPlaybackRate(clamped);
-      lastPlaybackRate = clamped;
-    }
     return {
       initAudio,
       loadFile,
@@ -33196,8 +33189,7 @@ move_frame("base", basePose, existingBaseParent)`;
       getDuration,
       hasAudio,
       setOnNaturalEnd,
-      syncVisualScroll,
-      setPlaybackRate
+      syncVisualScroll
     };
   })();
   var LiveSync = (function() {
@@ -36349,34 +36341,6 @@ move_frame("base", basePose, existingBaseParent)`;
     a2.click();
     showToast("URPX exported", "success");
   });
-  document.getElementById("export-timing-btn").addEventListener("click", () => {
-    if (!getState().waypoints.some((w2) => w2.type === "moveJ")) {
-      showToast("Record or import at least one moveJ first", "warn");
-      return;
-    }
-    if (revalidateDurations()) {
-      showToast("Timing changed after revalidation. Review the timeline, then export again.", "warn");
-      return;
-    }
-    const state = getState();
-    const csvField = (value) => `"${String(value).replace(/"/g, '""')}"`;
-    const header = ["#", "Pose", "Start (m:ss)", "Start (s)", "Arrives (m:ss)", "Arrives (s)", "Duration (s)"];
-    const rows = withTimestamps(state.waypoints).filter((wp) => wp.type === "moveJ").map((wp, index) => [
-      index + 1,
-      wp.name || `Waypoint ${index + 1}`,
-      timeline.fmtTime(wp.start),
-      wp.start.toFixed(3),
-      timeline.fmtTime(wp.end),
-      wp.end.toFixed(3),
-      wp.duration.toFixed(3)
-    ]);
-    const csv = [header, ...rows].map((row) => row.map(csvField).join(",")).join("\r\n") + "\r\n";
-    const link = document.createElement("a");
-    link.href = URL.createObjectURL(new Blob([csv], { type: "text/csv" }));
-    link.download = (state.project.name || "Choreography") + "_timing.csv";
-    link.click();
-    showToast("Timing table exported", "success");
-  });
   if (false) {
     let buildValidationPlan = function() {
       const state = getState();
@@ -36946,21 +36910,10 @@ move_frame("base", basePose, existingBaseParent)`;
   refreshHistoryButtons();
   setRobotPose(getState().initialPose);
   var workspaceReadyPromise = initializeManualProjectSession();
-  const LIVE_SYNC_DEADBAND_S = 0.02;
-  const LIVE_SYNC_HARD_RESYNC_S = 0.3;
-  const LIVE_SYNC_RATE_GAIN = 0.15;
-  const LIVE_SYNC_BIAS_GAIN = 0.05;
-  const LIVE_SYNC_MAX_RATE_NUDGE = 0.08;
-  const LIVE_SYNC_MAX_BIAS = 0.06;
-  let liveSyncBiasRate = 0;
-  let lastLoopMs = null;
   function loop(now) {
     requestAnimationFrame(loop);
-    const dt = lastLoopMs != null ? Math.min(0.25, Math.max(0, (now - lastLoopMs) / 1e3)) : 0;
-    lastLoopMs = now;
     jogStep();
     const liveRunning = RobotLive.isRunning();
-    if (!liveRunning) liveSyncBiasRate = 0;
     const liveLocked = RobotLive.isActive();
     const audioWasPlaying = audio.getIsPlaying();
     const sampledAudioT = audio.getCurrentTime();
@@ -36977,28 +36930,10 @@ move_frame("base", basePose, existingBaseParent)`;
       }
     }
     if (!liveLocked && timeline.isDragging()) timeline.stepDrag();
-    let liveAudioRate = 1;
     if (liveRunning) {
       pendingPlaybackEndTime = null;
       previewT = liveT;
-      if (audioIsPlaying) {
-        const drift = sampledAudioT - liveT;
-        const absDrift = Math.abs(drift);
-        if (absDrift > LIVE_SYNC_HARD_RESYNC_S) {
-          audio.seekTo(liveT);
-        } else {
-          liveSyncBiasRate = Math.max(
-            -LIVE_SYNC_MAX_BIAS,
-            Math.min(LIVE_SYNC_MAX_BIAS, liveSyncBiasRate + drift * LIVE_SYNC_BIAS_GAIN * dt)
-          );
-          const proportional = absDrift > LIVE_SYNC_DEADBAND_S ? drift * LIVE_SYNC_RATE_GAIN : 0;
-          const nudge = Math.max(
-            -LIVE_SYNC_MAX_RATE_NUDGE,
-            Math.min(LIVE_SYNC_MAX_RATE_NUDGE, proportional + liveSyncBiasRate)
-          );
-          liveAudioRate = 1 - nudge;
-        }
-      }
+      if (audioIsPlaying && Math.abs(sampledAudioT - liveT) > 0.05) audio.seekTo(liveT);
     } else if (previewT == null && Number.isFinite(pendingPlaybackEndTime)) {
       playbackT = pendingPlaybackEndTime;
       previewT = pendingPlaybackEndTime;
@@ -37006,7 +36941,6 @@ move_frame("base", basePose, existingBaseParent)`;
     } else if (previewT == null && (audioWasPlaying || audioIsPlaying)) {
       previewT = playbackT;
     }
-    audio.setPlaybackRate(liveAudioRate);
     if (previewT != null) setRobotPose(poseAtTime(getState().waypoints, previewT, getState().initialPose));
     timeline.updatePlayhead(playbackT, liveRunning || audioIsPlaying, Math.max(audio.getDuration(), getTotalDuration(getState().waypoints)));
     audio.syncVisualScroll(timeline.getScroll(), timeline.getZoom());

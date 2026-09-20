@@ -7,11 +7,10 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   build:
-    timeout-minutes: 30
     strategy:
       fail-fast: true
       matrix:
@@ -23,8 +22,6 @@ jobs:
     runs-on: ${{ matrix.runner }}
     steps:
       - uses: actions/checkout@v4
-        with:
-          persist-credentials: false
       - uses: actions/setup-python@v5
         with:
           python-version: "3.13"
@@ -34,46 +31,20 @@ jobs:
         run: |
           python fr5_connector.py --help
           python -m py_compile src/ur20_timing/fr5_live_bridge.py src/ur20_timing/fr5_macos_sdk.py
-          python scripts/stage_macos_connector_sdk.py build/macos-connector-sdk
           python -m pip install "pyinstaller>=6.10,<7"
           python -m PyInstaller --clean --onefile \
             --name "FR5-Connector-${{ matrix.arch }}" \
             --paths src \
-            --add-data "build/macos-connector-sdk:fairino_sdk" \
             --hidden-import ur20_timing.fr5_live_bridge \
             --hidden-import ur20_timing.fr5_macos_sdk \
-            --hidden-import ctypes \
-            --hidden-import _ctypes \
-            --hidden-import dataclasses \
-            --hidden-import datetime \
-            --hidden-import enum \
-            --hidden-import functools \
-            --hidden-import hashlib \
-            --hidden-import logging \
-            --hidden-import logging.handlers \
-            --hidden-import queue \
-            --hidden-import re \
-            --hidden-import socket \
-            --hidden-import struct \
-            --hidden-import threading \
-            --hidden-import traceback \
-            --hidden-import typing \
-            --hidden-import xmlrpc.client \
             fr5_connector.py
           dist/FR5-Connector-${{ matrix.arch }} --help
-          export FR5_CONNECTOR_SDK_CACHE="$RUNNER_TEMP/empty-fr5-sdk-cache"
-          mkdir -p "$FR5_CONNECTOR_SDK_CACHE"
-          for sdk_version in $(python -c 'import json; print(*json.load(open("build/macos-connector-sdk/manifest.json"))["versions"])'); do
-            dist/FR5-Connector-${{ matrix.arch }} \
-              --verify-bundled-sdk-version "$sdk_version"
-          done
           test "$(uname -m)" = "${{ matrix.arch }}"
           file dist/FR5-Connector-${{ matrix.arch }}
           codesign --force --sign - dist/FR5-Connector-${{ matrix.arch }}
           codesign --verify --verbose dist/FR5-Connector-${{ matrix.arch }}
           mkdir package
           cp dist/FR5-Connector-${{ matrix.arch }} package/
-          cp build/macos-connector-sdk/FAIRINO-SDK-LICENSE.txt package/
           chmod +x package/FR5-Connector-${{ matrix.arch }}
           ditto -c -k --keepParent package "FR5-Connector-${{ matrix.arch }}.zip"
       - uses: actions/upload-artifact@v4
@@ -83,16 +54,11 @@ jobs:
           if-no-files-found: error
 
   release:
-    if: startsWith(github.ref, 'refs/tags/fr5-connector-v')
+    if: startsWith(github.ref, 'refs/tags/')
     needs: build
     runs-on: macos-15
-    timeout-minutes: 10
-    permissions:
-      contents: write
     steps:
       - uses: actions/checkout@v4
-        with:
-          persist-credentials: false
       - uses: actions/download-artifact@v4
         with:
           pattern: FR5-Connector-*
@@ -102,20 +68,14 @@ jobs:
           mkdir -p "FR5 Connector/bin"
           unzip -q artifacts/FR5-Connector-arm64/FR5-Connector-arm64.zip -d arm
           unzip -q artifacts/FR5-Connector-x86_64/FR5-Connector-x86_64.zip -d intel
-          unzip -tq artifacts/FR5-Connector-arm64/FR5-Connector-arm64.zip
-          unzip -tq artifacts/FR5-Connector-x86_64/FR5-Connector-x86_64.zip
-          cmp arm/package/FAIRINO-SDK-LICENSE.txt intel/package/FAIRINO-SDK-LICENSE.txt
           cp arm/package/FR5-Connector-arm64 "FR5 Connector/bin/"
           cp intel/package/FR5-Connector-x86_64 "FR5 Connector/bin/"
           cp "Start FR5 Connector.command" "FR5 Connector/"
           cp MACOS_CONNECTOR_README.md "FR5 Connector/README.md"
           cp THIRD_PARTY_NOTICES.md "FR5 Connector/"
-          cp arm/package/FAIRINO-SDK-LICENSE.txt "FR5 Connector/"
           chmod +x "FR5 Connector/Start FR5 Connector.command" "FR5 Connector/bin/"*
           ditto -c -k --sequesterRsrc --keepParent "FR5 Connector" FR5-Connector-macOS.zip
           shasum -a 256 FR5-Connector-macOS.zip > FR5-Connector-macOS.zip.sha256
-          unzip -tq FR5-Connector-macOS.zip
-          shasum -a 256 -c FR5-Connector-macOS.zip.sha256
       - name: Publish release
         env:
           GH_TOKEN: ${{ github.token }}
@@ -123,6 +83,5 @@ jobs:
           gh release create "$GITHUB_REF_NAME" \
             FR5-Connector-macOS.zip \
             FR5-Connector-macOS.zip.sha256 \
-            --verify-tag \
-            --title "FR5 Connector for macOS ${GITHUB_REF_NAME#fr5-connector-v}" \
-            --notes "Standalone connector for Apple Silicon and Intel Macs with reliable complete-file transfer for large encoded choreographies. Includes integrity-checked FAIRINO SDK sources for WebApp 3.9.4-3.9.9, requires no Python or first-run SDK download, and verifies each SDK inside both packaged binaries before release. Start with reduced-speed commissioning and a reachable physical emergency stop."
+            --title "FR5 Connector for macOS" \
+            --notes "Standalone FR5 choreography connector for Apple Silicon and Intel Macs. Start with reduced-speed commissioning and a reachable physical emergency stop."

@@ -1,9 +1,0 @@
-__pycache__/
-*.py[cod]
-.pytest_cache/
-.venv/
-build/
-dist/
-*.spec
-runs/
-.DS_Store
